@@ -4,6 +4,6 @@
 
 int main()
 {
-	printf("hello worlddd from hello_c!\n");
+	printf("hello word from hello_c!\n");
 	return 0;
 }
