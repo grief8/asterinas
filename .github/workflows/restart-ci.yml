@@ -1,0 +1,32 @@
+name: Restart CI Jobs
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  restart-ci:
+    runs-on: ubuntu-latest
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '@cibot retest')
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Restart CI
+      uses: actions/github-script@v5
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        script: |
+          const { issue: { number: issue_number }, repository: { owner: { login: owner }, name: repo } } = context.payload;
+          const { data: pullRequest } = await github.rest.pulls.get({ owner, repo, pull_number: issue_number });
+          const { head: { sha } } = pullRequest;
+          
+          const checks = await github.rest.checks.listForRef({ owner, repo, ref: sha });
+          
+          for (const check of checks.data.check_runs) {
+            if (check.conclusion === 'failure' || check.status === 'in_progress') {
+              console.log(`Rerunning check: ${check.name}`);
+              await github.rest.checks.rerequestSuite({ owner, repo, check_suite_id: check.check_suite.id });
+            }
+          }
