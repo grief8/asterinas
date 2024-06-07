@@ -1,0 +1,143 @@
+# SPDX-License-Identifier: MPL-2.0
+
+name: Benchmarks Test
+on:
+  schedule:
+    - cron: '0 * * * *'
+  # push:
+  #   branches:
+  #     - main
+  #     - new-bench
+  # pull_request: {}
+
+jobs:
+  Benchmarks:
+    runs-on: self-hosted
+    timeout-minutes: 40
+    container: asterinas/asterinas:0.4.2
+    env:
+      RUSTUP_DIST_SERVER: https://mirrors.ustc.edu.cn/rust-static
+      RUSTUP_UPDATE_ROOT: https://mirrors.ustc.edu.cn/rust-static/rustup
+    steps:
+    - uses: actions/checkout@v2
+
+    # Step to set up the environment before running the script
+    - name: Set up the environment
+      run: |
+        sudo apt-get update && sudo apt-get install -y jq
+        chmod +x regression/benchmark/benchmarks.sh
+        git config --global --add safe.directory /__w/asterinas/asterinas
+
+    - name: Check if gh-pages branch exists
+      id: check-gh-pages
+      run: |
+        output=$(git ls-remote --heads https://github.com/${{ github.repository }} gh-pages)
+        if [ -n "$output" ]; then
+          echo "exists=true" >> $GITHUB_ENV
+        else
+          echo "exists=false" >> $GITHUB_ENV
+        fi
+      continue-on-error: true
+
+    - name: Run asterinas sysbench
+      run: bash regression/benchmark/benchmarks.sh sysbench asterinas
+
+    - name: Run linux sysbench
+      run: bash regression/benchmark/benchmarks.sh sysbench linux
+
+    - name: Store sysbench results on Asterinas
+      if: github.event_name == 'push'
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        name: Sysbench Benchmark on Asterinas
+        # Benchmark tool 
+        tool: 'customSmallerIsBetter'
+        # Where the output from the benchmark tool is stored
+        output-file-path: result_sysbench_asterinas.json
+        # Path to directory which contains benchmark files on GitHub pages branch
+        benchmark-data-dir-path: 'stable/benchmarks'
+        gh-pages-branch: 'gh-pages'
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        # Show alert with commit comment on detecting possible performance regression
+        alert-threshold: '150%'
+        comment-on-alert: true
+        # Workflow will fail when an alert happens
+        fail-on-alert: true
+    
+    - name: Store sysbench results on Linux
+      if: github.event_name == 'push'
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        name: Sysbench Benchmark on Linux
+        tool: 'customSmallerIsBetter'
+        output-file-path: result_sysbench_linux.json
+        benchmark-data-dir-path: 'stable/benchmarks'
+        gh-pages-branch: 'gh-pages'
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        alert-threshold: '150%'
+        comment-on-alert: true
+        fail-on-alert: true
+    
+    - name: Compare sysbench result 
+      if: ${{ github.event_name == 'pull_request' && env.exists == 'true' }}
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        name: Sysbench Benchmark
+        tool: 'customSmallerIsBetter'
+        output-file-path: result_sysbench.json
+        benchmark-data-dir-path: 'stable/benchmarks'
+        gh-pages-branch: 'gh-pages'
+        auto-push: false
+        alert-threshold: '150%'
+        fail-on-alert: true
+
+    - name: Run Asterinas getpid 
+      run: bash regression/benchmark/benchmarks.sh getpid asterinas
+
+    - name: Run Linux getpid
+      run: bash regression/benchmark/benchmarks.sh getpid linux
+
+    - name: Store getpid results on Asterinas
+      if: github.event_name == 'push'
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        name: Getpid Benchmark
+        tool: 'customSmallerIsBetter'
+        output-file-path: result_getpid_asterinas.json
+        benchmark-data-dir-path: 'stable/benchmarks'
+        gh-pages-branch: 'gh-pages'
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        alert-threshold: '150%'
+        comment-on-alert: true
+        fail-on-alert: true
+
+    - name: Store getpid results on Linux
+      if: github.event_name == 'push'
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        name: Getpid Benchmark
+        tool: 'customSmallerIsBetter'
+        output-file-path: result_getpid_linux.json
+        benchmark-data-dir-path: 'stable/benchmarks'
+        gh-pages-branch: 'gh-pages'
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        alert-threshold: '150%'
+        comment-on-alert: true
+        fail-on-alert: true
+
+    - name: Compare getpid result 
+      if: ${{ github.event_name == 'pull_request' && env.exists == 'true' }}
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        name: Getpid Benchmark
+        tool: 'customSmallerIsBetter'
+        output-file-path: result_getpid.json
+        benchmark-data-dir-path: 'stable/benchmarks'
+        gh-pages-branch: 'gh-pages'
+        auto-push: false
+        alert-threshold: '150%'
+        fail-on-alert: true

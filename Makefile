@@ -2,6 +2,7 @@
 
 # Global options.
 ARCH ?= x86_64
+BENCHMARK ?= none
 BOOT_METHOD ?= grub-rescue-iso
 BOOT_PROTOCOL ?= multiboot2
 BUILD_SYSCALL_TEST ?= 0
@@ -34,6 +35,12 @@ else ifeq ($(AUTO_TEST), regression)
 CARGO_OSDK_ARGS += --init-args="/regression/run_regression_test.sh"
 else ifeq ($(AUTO_TEST), boot)
 CARGO_OSDK_ARGS += --init-args="/regression/boot_hello.sh"
+endif
+
+ifeq ($(BENCHMARK), sysbench)
+CARGO_OSDK_ARGS += --init-args="/benchmark/sysbench.sh"
+else ifeq ($(BENCHMARK), getpid)
+CARGO_OSDK_ARGS += --init-args="/benchmark/getpid.sh"
 endif
 
 ifeq ($(RELEASE_LTO), 1)

@@ -1,0 +1,8 @@
+[
+    {
+        "name": "Threads Average Latency",
+        "unit": "ms",
+        "value": 0,
+        "extra": "avg"
+    }
+]

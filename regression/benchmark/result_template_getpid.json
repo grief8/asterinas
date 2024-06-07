@@ -1,0 +1,8 @@
+[
+    {
+        "name": "Syscall Average Latency",
+        "unit": "ns",
+        "value": 0,
+        "extra": "avg"
+    }
+]

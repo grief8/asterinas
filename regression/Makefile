@@ -80,6 +80,8 @@ $(INITRAMFS)/benchmark:
 	@cp /usr/local/benchmark/sysbench/bin/sysbench $@
 	@cp /usr/local/benchmark/iperf/bin/iperf3 $@
 	@cp /usr/local/benchmark/membench/membench $@
+	@cp $(CUR_DIR)/benchmark/sysbench.sh $@
+	@cp $(CUR_DIR)/benchmark/getpid.sh $@
 
 # Make necessary directories.
 $(INITRAMFS_EMPTY_DIRS):
