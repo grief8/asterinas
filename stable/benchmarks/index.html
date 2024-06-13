@@ -89,7 +89,7 @@
   <body>
     <header id="header">
       <div class="header-item">
-        <strong class="header-label">Last Update1:</strong>
+        <strong class="header-label">Last Update:</strong>
         <span id="last-update"></span>
       </div>
       <div class="header-item">
@@ -183,11 +183,11 @@
                   label: name,
                   data: dataset.map(d => d.bench.value),
                   borderColor: color,
-                  backgroundColor: color + '60', // Add alpha for #rrggbbaa
+                  backgroundColor: color + '30', // Add alpha for #rrggbbaa
                 },
                 {
                   label: "test",
-                  data: dataset.map(d => d.bench.value+1), // Plus 1 to make the line visible
+                  data: dataset.map(d => d.bench.value+1000), // Plus 1 to make the line visible
                   borderColor: color,
                   backgroundColor: color + '60', // Add alpha for #rrggbbaa
                 }
@@ -204,15 +204,6 @@
                   }
                 ],
                 yAxes: [
-                  {
-                    scaleLabel: {
-                      display: true,
-                      labelString: dataset.length > 0 ? dataset[0].bench.unit : '',
-                    },
-                    ticks: {
-                      beginAtZero: true,
-                    }
-                  },
                   {
                     scaleLabel: {
                       display: true,
