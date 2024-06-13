@@ -170,22 +170,27 @@
 
         function renderAllChars(dataSets) {
 
-          function renderGraph(parent, datasets) {
+          function renderGraph(parent, benchSets) {
             const canvas = document.createElement('canvas');
             canvas.className = 'benchmark-chart';
             parent.appendChild(canvas);
           
+            const datasets = [];
+            for (const [benchName, benches] of benchSets.entries()) {
+              const color = toolColors[benches.length > 0 ? benches[0].tool : '_'];
+              datasets.push({
+                label: benchName,
+                data: benches.map(d => d.bench.value),
+                fill: false,
+                borderColor: color,
+                backgroundColor: color + '30', // Add alpha for #rrggbbaa
+              });
+            }
+          
             const data = {
-              labels: datasets.flatMap(dataset => dataset.map(d => d.commit.id.slice(0, 7))),
-              datasets: datasets.map((dataset, index) => {
-                const color = toolColors[dataset.length > 0 ? dataset[0].tool : '_'];
-                return {
-                  label: labels[index],
-                  data: dataset.map(d => d.bench.value),
-                  borderColor: color,
-                  backgroundColor: color + '60', // Add alpha for #rrggbbaa
-                };
-              }),
+              // Assuming all datasets has the same commit sequence
+              labels: benchSets.values().next().value.map(d => d.commit.id.slice(0, 7)),
+              datasets: datasets,
             };
           
             const options = {
@@ -202,7 +207,8 @@
                   {
                     scaleLabel: {
                       display: true,
-                      labelString: datasets[0].length > 0 ? datasets[0][0].bench.unit : '',
+                      // Assuming all datasets has the same unit, take the first one
+                      labelString: benchSets.values().next().value.length > 0 ? benchSets.values().next().value[0].bench.unit : '',
                     },
                     ticks: {
                       beginAtZero: true,
@@ -214,12 +220,12 @@
                 callbacks: {
                   afterTitle: items => {
                     const {index} = items[0];
-                    const data = datasets[items[0].datasetIndex][index];
+                    const data = dataset[index];
                     return '\n' + data.commit.message + '\n\n' + data.commit.timestamp + ' committed by @' + data.commit.committer.username + '\n';
                   },
                   label: item => {
                     let label = item.value;
-                    const { range, unit } = datasets[item.datasetIndex][item.index].bench;
+                    const { range, unit } = dataset[item.index].bench;
                     label += ' ' + unit;
                     if (range) {
                       label += ' (' + range + ')';
@@ -227,7 +233,7 @@
                     return label;
                   },
                   afterLabel: item => {
-                    const { extra } = datasets[item.datasetIndex][item.index].bench;
+                    const { extra } = dataset[item.index].bench;
                     return extra ? '\n' + extra : '';
                   }
                 }
@@ -236,46 +242,30 @@
                 if (activeElems.length === 0) {
                   return;
                 }
+                // XXX: Undocumented. How can we know the index?
                 const index = activeElems[0]._index;
-                const datasetIndex = activeElems[0].datasetIndex;
-                const url = datasets[datasetIndex][index].commit.url;
+                const url = dataset[index].commit.url;
                 window.open(url, '_blank');
               },
             };
-          
+
             new Chart(canvas, {
               type: 'line',
               data,
               options,
             });
           }
-  
-          function renderBenchSet(name, benchSet, main) {
-            const setElem = document.createElement('div');
-            setElem.className = 'benchmark-set';
-            main.appendChild(setElem);
-
-            const nameElem = document.createElement('h1');
-            nameElem.className = 'benchmark-title';
-            nameElem.textContent = name;
-            setElem.appendChild(nameElem);
-
-            const graphsElem = document.createElement('div');
-            graphsElem.className = 'benchmark-graphs';
-            setElem.appendChild(graphsElem);
-
-            const combinedDatasets = [];
-            for (const [benchName, benches] of benchSet.entries()) {
-              combinedDatasets.push(benches);
-            }
-            renderGraph(graphsElem, combinedDatasets);
-          }
 
           const main = document.getElementById('main');
+          const graphsElem = document.createElement('div');
+          graphsElem.className = 'benchmark-graphs';
+          main.appendChild(graphsElem);
+        
           for (const {name, dataSet} of dataSets) {
-            renderBenchSet(name, dataSet, main);
+            renderGraph(graphsElem, dataSet);
           }
         }
+        
 
         renderAllChars(init()); // Start
       })();
