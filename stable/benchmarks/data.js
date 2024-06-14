@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718334985672,
+  "lastUpdate": 1718335112298,
   "repoUrl": "https://github.com/grief8/asterinas",
   "entries": {
     "Sysbench Benchmark": [
@@ -615,6 +615,44 @@ window.BENCHMARK_DATA = {
             "name": "Asterinas Syscall Average Latency",
             "value": "1048",
             "unit": "ns",
+            "extra": "aster_avg"
+          }
+        ]
+      }
+    ],
+    "sysbench Benchmark": [
+      {
+        "commit": {
+          "author": {
+            "email": "lifabing.lfb@antgroup.com",
+            "name": "Fabing Li",
+            "username": "grief8"
+          },
+          "committer": {
+            "email": "lifabing.lfb@antgroup.com",
+            "name": "Fabing Li",
+            "username": "grief8"
+          },
+          "distinct": true,
+          "id": "a727d1ce3758898faf7dc097ce09849d3f8eddcf",
+          "message": "ddd",
+          "timestamp": "2024-06-14T11:11:47+08:00",
+          "tree_id": "683dd3011b229460480f62368c8fd92811477f68",
+          "url": "https://github.com/grief8/asterinas/commit/a727d1ce3758898faf7dc097ce09849d3f8eddcf"
+        },
+        "date": 1718335111730,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Linux Threads Average Latency",
+            "value": "25.23",
+            "unit": "ms",
+            "extra": "linux_avg"
+          },
+          {
+            "name": "Asterinas Threads Average Latency",
+            "value": "7758.95",
+            "unit": "ms",
             "extra": "aster_avg"
           }
         ]
