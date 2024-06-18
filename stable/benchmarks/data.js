@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718748504818,
+  "lastUpdate": 1718751953380,
   "repoUrl": "https://github.com/grief8/asterinas",
   "entries": {
     "getpid Benchmark": [
@@ -1816,6 +1816,40 @@ window.BENCHMARK_DATA = {
           {
             "name": "Asterinas Syscall Average Latency",
             "value": "1200",
+            "unit": "ns",
+            "extra": "aster_avg"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Fabing Li",
+            "username": "grief8",
+            "email": "lifabing.lfb@antgroup.com"
+          },
+          "committer": {
+            "name": "Fabing Li",
+            "username": "grief8",
+            "email": "lifabing.lfb@antgroup.com"
+          },
+          "id": "2833b28c1bf6df6f06ec58ee60a0a0785d5f66a2",
+          "message": "Add benchmark CI for sysbench and getpid",
+          "timestamp": "2024-06-17T07:09:29Z",
+          "url": "https://github.com/grief8/asterinas/commit/2833b28c1bf6df6f06ec58ee60a0a0785d5f66a2"
+        },
+        "date": 1718751952739,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Linux Syscall Average Latency",
+            "value": "11975",
+            "unit": "ns",
+            "extra": "linux_avg"
+          },
+          {
+            "name": "Asterinas Syscall Average Latency",
+            "value": "1172",
             "unit": "ns",
             "extra": "aster_avg"
           }
