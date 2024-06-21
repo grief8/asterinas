@@ -1395,7 +1395,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.12\r",
+            "value": "21.12",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1431,7 +1431,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "22.30\r",
+            "value": "22.30",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1465,7 +1465,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.68\r",
+            "value": "21.68",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1501,7 +1501,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.64\r",
+            "value": "21.64",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1535,7 +1535,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.15\r",
+            "value": "21.15",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1569,7 +1569,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "22.00\r",
+            "value": "22.00",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1603,7 +1603,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "22.43\r",
+            "value": "22.43",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1637,7 +1637,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.62\r",
+            "value": "21.62",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1671,7 +1671,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.69\r",
+            "value": "21.69",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1705,7 +1705,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.54\r",
+            "value": "21.54",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1739,7 +1739,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.66\r",
+            "value": "21.66",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1773,7 +1773,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.79\r",
+            "value": "21.79",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1807,7 +1807,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.61\r",
+            "value": "21.61",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1841,7 +1841,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.58\r",
+            "value": "21.58",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1875,7 +1875,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "22.01\r",
+            "value": "22.01",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1909,7 +1909,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.07\r",
+            "value": "21.07",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1943,7 +1943,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.75\r",
+            "value": "21.75",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -1977,7 +1977,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "22.82\r",
+            "value": "22.82",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2011,7 +2011,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.53\r",
+            "value": "21.53",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2045,7 +2045,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "22.00\r",
+            "value": "22.00",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2079,7 +2079,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.29\r",
+            "value": "21.29",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2113,7 +2113,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "22.14\r",
+            "value": "22.14",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2147,7 +2147,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.73\r",
+            "value": "21.73",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2181,7 +2181,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "22.69\r",
+            "value": "22.69",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2215,7 +2215,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.50\r",
+            "value": "21.50",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2249,7 +2249,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.78\r",
+            "value": "21.78",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2283,7 +2283,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.55\r",
+            "value": "21.55",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2317,7 +2317,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "22.99\r",
+            "value": "22.99",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2351,7 +2351,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.40\r",
+            "value": "21.40",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2385,7 +2385,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.31\r",
+            "value": "21.31",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2419,7 +2419,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.67\r",
+            "value": "21.67",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2453,7 +2453,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.18\r",
+            "value": "21.18",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2487,7 +2487,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.73\r",
+            "value": "21.73",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2521,7 +2521,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "22.45\r",
+            "value": "22.45",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2555,7 +2555,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.89\r",
+            "value": "21.89",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2589,7 +2589,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.15\r",
+            "value": "21.15",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2623,7 +2623,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.97\r",
+            "value": "21.97",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2657,7 +2657,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "22.65\r",
+            "value": "22.65",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2691,7 +2691,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.24\r",
+            "value": "21.24",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2725,7 +2725,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.63\r",
+            "value": "21.63",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2759,7 +2759,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.20\r",
+            "value": "21.20",
             "unit": "ms",
             "extra": "linux_avg"
           },
@@ -2793,7 +2793,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "201.54\r",
+            "value": "201.54",
             "unit": "ms",
             "extra": "linux_avg"
           },
