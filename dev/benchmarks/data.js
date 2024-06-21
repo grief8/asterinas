@@ -2793,7 +2793,7 @@ window.BENCHMARK_DATA = {
         "benches": [
           {
             "name": "Linux Threads Average Latency",
-            "value": "21.54\r",
+            "value": "201.54\r",
             "unit": "ms",
             "extra": "linux_avg"
           },
