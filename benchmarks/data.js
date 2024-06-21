@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1718984752434,
+  "lastUpdate": 1718985213436,
   "repoUrl": "https://github.com/grief8/asterinas",
   "entries": {
     "sysbench-thread Benchmark": [
@@ -161,6 +161,40 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/grief8/asterinas/commit/5dc579236fed42ab32c24816984e688682a0bd49"
         },
         "date": 1718979329332,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Linux CPU Average Latency",
+            "value": "3.83",
+            "unit": "ms",
+            "extra": "linux_avg"
+          },
+          {
+            "name": "Asterinas CPU Average Latency",
+            "value": "3.83",
+            "unit": "ms",
+            "extra": "aster_avg"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Fabing Li",
+            "username": "grief8",
+            "email": "lifabing.lfb@antgroup.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5dc579236fed42ab32c24816984e688682a0bd49",
+          "message": "Update benchmarks.yml",
+          "timestamp": "2024-06-21T14:09:18Z",
+          "url": "https://github.com/grief8/asterinas/commit/5dc579236fed42ab32c24816984e688682a0bd49"
+        },
+        "date": 1718985207673,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
