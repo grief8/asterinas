@@ -125,6 +125,40 @@ impl InodeHandle<Rights> {
 
         self.0.unlock_range_lock(&range_lock)
     }
+
+    pub fn set_flock(&self, lock: Flock, is_nonblocking: bool) -> Result<()> {
+        let extension = match self.dentry().inode().extension() {
+            Some(extension) => extension,
+            None => {
+                warn!("Inode extension is not supported, let the lock could be acquired");
+                // TODO: Implement inode extension for FS
+                return Ok(());
+            }
+        };
+        let flock_list = match extension.get::<FlockList>() {
+            Some(list) => list,
+            None => extension.get_or_put_default::<FlockList>(),
+        };
+
+        flock_list.set_lock(lock, is_nonblocking)
+    }
+
+    pub fn unlock_flock(&self) {
+        let extension = match self.dentry().inode().extension() {
+            Some(extension) => extension,
+            None => {
+                return;
+            }
+        };
+        let flock_list = match extension.get::<FlockList>() {
+            Some(list) => list,
+            None => {
+                return;
+            }
+        };
+
+        flock_list.unlock(self);
+    }
 }
 
 impl Clone for InodeHandle<Rights> {

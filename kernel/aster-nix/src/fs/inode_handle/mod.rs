@@ -12,7 +12,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use aster_rights::Rights;
 use inherit_methods_macro::inherit_methods;
 
-use super::utils::RangeLockType;
+use super::utils::{Flock, FlockList, RangeLockType};
 use crate::{
     events::IoEvents,
     fs::{
