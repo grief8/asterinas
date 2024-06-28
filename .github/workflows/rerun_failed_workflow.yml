@@ -67,8 +67,10 @@ jobs:
             for JOB_ID in $FAILED_JOB_IDS; do
               echo "Rerunning job ID: $JOB_ID"
               RESPONSE=$(curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                "https://api.github.com/repos/${{ github.repository }}/actions/jobs/$JOB_ID/rerun")
+                "https://api.github.com/repos/${{ github.repository }}/actions/jobs/$JOB_ID/rerun" -s -o /dev/null -w "%{http_code}")
               
-              echo "Failed to rerun job ID $JOB_ID. $RESPONSE"
+              if [ "$RESPONSE" != "201" ]; then
+                echo "Failed to rerun job ID $JOB_ID. HTTP status code: $RESPONSE"
+              fi
             done
           done
