@@ -1,4 +1,4 @@
-# .github/workflows/rerun_failed_workflow.yml
+# .github/workflows/rerun-failed-workflow.yml
 name: Rerun Failed Workflow
 
 on:
@@ -36,7 +36,7 @@ jobs:
             echo "AUTHOR_IS_OWNER=true" >> $GITHUB_ENV
           fi
           
-      - name: Rerun failed job
+      - name: Rerun failed jobs
         if: env.RERUN_COMMAND == 'true' && env.AUTHOR_IS_OWNER == 'true'
         run: |
           # Get the workflow run ID of the last failed run
@@ -48,9 +48,11 @@ jobs:
           JOBS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/actions/runs/$WORKFLOW_RUN_ID/jobs")
           
-          # Find the failed job ID
-          FAILED_JOB_ID=$(echo $JOBS | jq '.jobs[] | select(.conclusion == "failure") | .id' | head -n 1)
+          # Find the failed job IDs
+          FAILED_JOB_IDS=$(echo $JOBS | jq '.jobs[] | select(.conclusion == "failure") | .id')
           
-          # Rerun the failed job
-          curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/jobs/$FAILED_JOB_ID/rerun"
+          # Rerun each failed job
+          for JOB_ID in $FAILED_JOB_IDS; do
+            curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/jobs/$JOB_ID/rerun"
+          done
