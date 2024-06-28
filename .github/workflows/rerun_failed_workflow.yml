@@ -49,10 +49,11 @@ jobs:
             "https://api.github.com/repos/${{ github.repository }}/actions/runs/$WORKFLOW_RUN_ID/jobs")
           
           # Find the failed job IDs
-          FAILED_JOB_IDS=$(echo $JOBS | jq '.jobs[] | select(.conclusion == "failure") | .id')
+          FAILED_JOB_IDS=$(echo $JOBS | jq -r '.jobs[] | select(.conclusion == "failure") | .id')
           
           # Rerun each failed job
           for JOB_ID in $FAILED_JOB_IDS; do
             curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/${{ github.repository }}/actions/jobs/$JOB_ID/rerun"
           done
+          
