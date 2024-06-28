@@ -9,14 +9,13 @@ jobs:
   rerun-workflow:
     runs-on: ubuntu-latest
     steps:
-      - name: Check if comment contains rerun command and is from a pull request
+      - name: Check if comment contains rerun command
         id: check_comment
         run: |
           echo "COMMENT_BODY=${{ github.event.comment.body }}" >> $GITHUB_ENV
-          if [[ "${{ github.event.comment.body }}" == "/rerun" && "${{ github.event.issue.pull_request }}" ]]; then
+          if [[ "${{ github.event.comment.body }}" == "/rerun" ]]; then
             echo "RERUN_COMMAND=true" >> $GITHUB_ENV
           fi
-          
       - name: Get pull request owner
         if: env.RERUN_COMMAND == 'true'
         id: get_pr_owner
@@ -26,7 +25,6 @@ jobs:
             "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER" | \
             jq -r '.user.login')
           echo "PR_OWNER=$PR_OWNER" >> $GITHUB_ENV
-          
       - name: Check if comment author is pull request owner
         if: env.RERUN_COMMAND == 'true'
         id: check_author
@@ -35,42 +33,14 @@ jobs:
           if [[ "$COMMENT_AUTHOR" == "$PR_OWNER" ]]; then
             echo "AUTHOR_IS_OWNER=true" >> $GITHUB_ENV
           fi
-          
-      - name: Rerun failed jobs in all failed workflow runs
+      - name: Rerun failed workflow
         if: env.RERUN_COMMAND == 'true' && env.AUTHOR_IS_OWNER == 'true'
         run: |
-          # Debug: Print environment variables
-          echo "RERUN_COMMAND: ${{ env.RERUN_COMMAND }}"
-          echo "AUTHOR_IS_OWNER: ${{ env.AUTHOR_IS_OWNER }}"
-          
-          # Get the workflow run IDs of all failed runs
-          WORKFLOW_RUN_IDS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          # Get the workflow run ID of the last failed run
+          WORKFLOW_RUN_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/actions/runs" | \
-            jq -r '.workflow_runs[] | select(.status == "completed" and .conclusion == "failure") | .id')
+            jq '.workflow_runs[] | select(.status == "completed" and .conclusion == "failure") | .id' | head -n 1)
           
-          # Debug: Print workflow run IDs
-          echo "Workflow Run IDs: $WORKFLOW_RUN_IDS"
-          
-          # Rerun each failed job in each failed workflow run
-          for WORKFLOW_RUN_ID in $WORKFLOW_RUN_IDS; do
-            # Get the jobs of the failed workflow run
-            JOBS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/runs/$WORKFLOW_RUN_ID/jobs")
-            
-            # Find the failed job IDs
-            FAILED_JOB_IDS=$(echo $JOBS | jq -r '.jobs[] | select(.conclusion == "failure") | .id')
-            
-            # Debug: Print failed job IDs
-            echo "Failed Job IDs for Workflow Run ID $WORKFLOW_RUN_ID: $FAILED_JOB_IDS"
-            
-            # Rerun each failed job
-            for JOB_ID in $FAILED_JOB_IDS; do
-              echo "Rerunning job ID: $JOB_ID"
-              RESPONSE=$(curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                "https://api.github.com/repos/${{ github.repository }}/actions/jobs/$JOB_ID/rerun" -s -o /dev/null -w "%{http_code}")
-              
-              if [ "$RESPONSE" != "201" ]; then
-                echo "Failed to rerun job ID $JOB_ID. HTTP status code: $RESPONSE"
-              fi
-            done
-          done
+          # Rerun the failed workflow
+          curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs/$WORKFLOW_RUN_ID/rerun"
