@@ -6,10 +6,13 @@
 #
 # Please keep the list sorted by name.
 TESTS ?= \
+	access_test \
 	alarm_test \
 	chmod_test \
 	chown_test \
 	chroot_test \
+	creat_test \
+	dup_test \
 	epoll_test \
 	eventfd_test \
 	fsync_test \
@@ -18,20 +21,18 @@ TESTS ?= \
 	lseek_test \
 	mkdir_test \
 	mmap_test \
+	mount_test \
 	open_create_test \
 	open_test \
+	pread64_test \
+	preadv2_test \
+	pwrite64_test \
+	pwritev2_test \
 	pty_test \
 	read_test \
-	rename_test \
-	stat_test \
-	statfs_test \
-	symlink_test \
-	sync_test \
-	truncate_test \
-	uidgid_test \
-	unlink_test \
-	vdso_clock_gettime_test \
+	readv_test \
 	write_test \
+	utimes_test \
 	# The end of the list
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
@@ -58,7 +59,7 @@ $(TESTS): $(BIN_DIR) $(TARGET_DIR)
 ifndef ASTER_PREBUILT_SYSCALL_TEST
 $(BIN_DIR): $(SRC_DIR)
 	@if ! type bazel > /dev/null; then \
-		echo "bazel is not installed, please run $(CUR_DIR)/install_bazel.sh with sudo permission to install it."; \
+		echo "bazel is not installed, please run tools/install_bazel.sh with sudo permission to install it."; \
 		exit 1; \
 	fi
 	@rm -rf $@ && mkdir -p $@

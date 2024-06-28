@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use alloc::string::String;
 use core::{cmp::Ordering, time::Duration};
 
@@ -9,8 +12,8 @@ use aster_block::{
     id::{Bid, BlockId},
     BLOCK_SIZE,
 };
-use aster_frame::vm::{VmAllocOptions, VmFrame, VmIo};
 use aster_rights::Full;
+use ostd::mm::{Frame, FrameAllocOptions, VmIo};
 
 use super::{
     constants::*,
@@ -132,7 +135,7 @@ struct ExfatInodeInner {
 }
 
 impl PageCacheBackend for ExfatInode {
-    fn read_page(&self, idx: usize, frame: &VmFrame) -> Result<BioWaiter> {
+    fn read_page(&self, idx: usize, frame: &Frame) -> Result<BioWaiter> {
         let inner = self.inner.read();
         if inner.size < idx * PAGE_SIZE {
             return_errno_with_message!(Errno::EINVAL, "Invalid read size")
@@ -145,7 +148,7 @@ impl PageCacheBackend for ExfatInode {
         Ok(waiter)
     }
 
-    fn write_page(&self, idx: usize, frame: &VmFrame) -> Result<BioWaiter> {
+    fn write_page(&self, idx: usize, frame: &Frame) -> Result<BioWaiter> {
         let inner = self.inner.read();
         let sector_size = inner.fs().sector_size();
 
@@ -478,6 +481,8 @@ impl ExfatInodeInner {
             target_name.to_string()
         };
 
+        // FIXME: This isn't expected by the compiler.
+        #[allow(non_local_definitions)]
         impl DirentVisitor for Vec<(String, usize)> {
             fn visit(
                 &mut self,
@@ -568,9 +573,14 @@ impl ExfatInodeInner {
         Ok(())
     }
 
-    fn sync(&self, fs_guard: &MutexGuard<()>) -> Result<()> {
+    fn sync_data(&self, fs_guard: &MutexGuard<()>) -> Result<()> {
         self.page_cache.evict_range(0..self.size)?;
+        Ok(())
+    }
+
+    fn sync_all(&self, fs_guard: &MutexGuard<()>) -> Result<()> {
         self.sync_metadata(fs_guard)?;
+        self.sync_data(fs_guard)?;
         Ok(())
     }
 
@@ -989,6 +999,8 @@ impl ExfatInode {
         let new_parent_hash = self.hash_index();
         let sub_dir = inner.num_sub_inodes;
         let mut child_offsets: Vec<usize> = vec![];
+        // FIXME: This isn't expected by the compiler.
+        #[allow(non_local_definitions)]
         impl DirentVisitor for Vec<usize> {
             fn visit(
                 &mut self,
@@ -1122,7 +1134,7 @@ impl Inode for ExfatInode {
 
         Metadata {
             dev: 0,
-            ino: inner.ino as usize,
+            ino: inner.ino,
             size: inner.size,
             blk_size,
             blocks: (inner.size + blk_size - 1) / blk_size,
@@ -1166,6 +1178,14 @@ impl Inode for ExfatInode {
 
     fn set_mtime(&self, time: Duration) {
         self.inner.write().mtime = DosTimestamp::from_duration(time).unwrap_or_default();
+    }
+
+    fn ctime(&self) -> Duration {
+        self.inner.read().ctime.as_duration().unwrap_or_default()
+    }
+
+    fn set_ctime(&self, time: Duration) {
+        self.inner.write().ctime = DosTimestamp::from_duration(time).unwrap_or_default();
     }
 
     fn owner(&self) -> Result<Uid> {
@@ -1242,7 +1262,10 @@ impl Inode for ExfatInode {
             .discard_range(read_off..read_off + read_len);
 
         let mut buf_offset = 0;
-        let frame = VmAllocOptions::new(1).uninit(true).alloc_single().unwrap();
+        let frame = FrameAllocOptions::new(1)
+            .uninit(true)
+            .alloc_single()
+            .unwrap();
 
         let start_pos = inner.start_chain.walk_to_cluster_at_offset(read_off)?;
         let cluster_size = inner.fs().cluster_size();
@@ -1310,7 +1333,7 @@ impl Inode for ExfatInode {
         if inner.is_sync() {
             let fs = inner.fs();
             let fs_guard = fs.lock();
-            inner.sync(&fs_guard)?;
+            inner.sync_all(&fs_guard)?;
         }
 
         Ok(buf.len())
@@ -1355,7 +1378,10 @@ impl Inode for ExfatInode {
         let mut cur_offset = start_pos.1;
         for _ in Bid::from_offset(offset)..Bid::from_offset(end_offset) {
             let frame = {
-                let frame = VmAllocOptions::new(1).uninit(true).alloc_single().unwrap();
+                let frame = FrameAllocOptions::new(1)
+                    .uninit(true)
+                    .alloc_single()
+                    .unwrap();
                 frame.write_bytes(0, &buf[buf_offset..buf_offset + BLOCK_SIZE])?;
                 frame
             };
@@ -1414,7 +1440,7 @@ impl Inode for ExfatInode {
         let inner = self.inner.read();
 
         if inner.is_sync() {
-            inner.sync(&fs_guard)?;
+            inner.sync_all(&fs_guard)?;
         }
 
         Ok(result)
@@ -1509,7 +1535,7 @@ impl Inode for ExfatInode {
 
         let inner = self.inner.read();
         if inner.is_sync() {
-            inner.sync(&fs_guard)?;
+            inner.sync_all(&fs_guard)?;
         }
 
         Ok(())
@@ -1546,7 +1572,7 @@ impl Inode for ExfatInode {
         let inner = self.inner.read();
         // Sync this inode since size has changed.
         if inner.is_sync() {
-            inner.sync(&fs_guard)?;
+            inner.sync_all(&fs_guard)?;
         }
 
         Ok(())
@@ -1635,9 +1661,9 @@ impl Inode for ExfatInode {
         // Sync
         if self.inner.read().is_sync() || target_.inner.read().is_sync() {
             // TODO: what if fs crashed between syncing?
-            old_inode.inner.read().sync(&fs_guard)?;
-            target_.inner.read().sync(&fs_guard)?;
-            self.inner.read().sync(&fs_guard)?;
+            old_inode.inner.read().sync_all(&fs_guard)?;
+            target_.inner.read().sync_all(&fs_guard)?;
+            self.inner.read().sync_all(&fs_guard)?;
         }
         Ok(())
     }
@@ -1654,11 +1680,20 @@ impl Inode for ExfatInode {
         return_errno_with_message!(Errno::EINVAL, "unsupported operation")
     }
 
-    fn sync(&self) -> Result<()> {
+    fn sync_all(&self) -> Result<()> {
         let inner = self.inner.read();
         let fs = inner.fs();
         let fs_guard = fs.lock();
-        inner.sync(&fs_guard)?;
+        inner.sync_all(&fs_guard)?;
+
+        Ok(())
+    }
+
+    fn sync_data(&self) -> Result<()> {
+        let inner = self.inner.read();
+        let fs = inner.fs();
+        let fs_guard = fs.lock();
+        inner.sync_data(&fs_guard)?;
 
         Ok(())
     }

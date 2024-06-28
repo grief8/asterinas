@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(unused_variables)]
+
 use core::time::Duration;
 
 use aster_util::slot_vec::SlotVec;
@@ -19,31 +21,34 @@ pub struct ProcDir<D: DirOps> {
     inner: D,
     this: Weak<ProcDir<D>>,
     parent: Option<Weak<dyn Inode>>,
-    cached_children: RwLock<SlotVec<(String, Arc<dyn Inode>)>>,
+    cached_children: RwMutex<SlotVec<(String, Arc<dyn Inode>)>>,
     common: Common,
 }
 
 impl<D: DirOps> ProcDir<D> {
     pub fn new(
         dir: D,
-        fs: Arc<dyn FileSystem>,
+        fs: Weak<dyn FileSystem>,
         parent: Option<Weak<dyn Inode>>,
+        ino: Option<u64>,
         is_volatile: bool,
     ) -> Arc<Self> {
         let common = {
-            let procfs = fs.downcast_ref::<ProcFS>().unwrap();
-            let metadata = Metadata::new_dir(
-                procfs.alloc_id(),
-                InodeMode::from_bits_truncate(0o555),
-                &fs.sb(),
-            );
-            Common::new(metadata, Arc::downgrade(&fs), is_volatile)
+            let ino = ino.unwrap_or_else(|| {
+                let arc_fs = fs.upgrade().unwrap();
+                let procfs = arc_fs.downcast_ref::<ProcFS>().unwrap();
+                procfs.alloc_id()
+            });
+
+            let metadata =
+                Metadata::new_dir(ino, InodeMode::from_bits_truncate(0o555), super::BLOCK_SIZE);
+            Common::new(metadata, fs, is_volatile)
         };
         Arc::new_cyclic(|weak_self| Self {
             inner: dir,
             this: weak_self.clone(),
             parent,
-            cached_children: RwLock::new(SlotVec::new()),
+            cached_children: RwMutex::new(SlotVec::new()),
             common,
         })
     }
@@ -56,7 +61,7 @@ impl<D: DirOps> ProcDir<D> {
         self.parent.as_ref().and_then(|p| p.upgrade())
     }
 
-    pub fn cached_children(&self) -> &RwLock<SlotVec<(String, Arc<dyn Inode>)>> {
+    pub fn cached_children(&self) -> &RwMutex<SlotVec<(String, Arc<dyn Inode>)>> {
         &self.cached_children
     }
 }
@@ -76,6 +81,8 @@ impl<D: DirOps + 'static> Inode for ProcDir<D> {
     fn set_atime(&self, time: Duration);
     fn mtime(&self) -> Duration;
     fn set_mtime(&self, time: Duration);
+    fn ctime(&self) -> Duration;
+    fn set_ctime(&self, time: Duration);
     fn fs(&self) -> Arc<dyn FileSystem>;
 
     fn resize(&self, _new_size: usize) -> Result<()> {
@@ -106,20 +113,15 @@ impl<D: DirOps + 'static> Inode for ProcDir<D> {
                 let this_inode = self.this();
                 visitor.visit(
                     ".",
-                    this_inode.common.metadata().ino as u64,
-                    this_inode.common.metadata().type_,
+                    this_inode.common.ino(),
+                    this_inode.common.type_(),
                     *offset,
                 )?;
                 *offset += 1;
             }
             if *offset == 1 {
                 let parent_inode = self.parent().unwrap_or(self.this());
-                visitor.visit(
-                    "..",
-                    parent_inode.metadata().ino as u64,
-                    parent_inode.metadata().type_,
-                    *offset,
-                )?;
+                visitor.visit("..", parent_inode.ino(), parent_inode.type_(), *offset)?;
                 *offset += 1;
             }
 
@@ -132,12 +134,7 @@ impl<D: DirOps + 'static> Inode for ProcDir<D> {
                 .map(|(idx, (name, child))| (idx + 2, (name, child)))
                 .skip_while(|(idx, _)| idx < &start_offset)
             {
-                visitor.visit(
-                    name.as_ref(),
-                    child.metadata().ino as u64,
-                    child.metadata().type_,
-                    idx,
-                )?;
+                visitor.visit(name.as_ref(), child.ino(), child.type_(), idx)?;
                 *offset = idx + 1;
             }
             Ok(())
@@ -184,10 +181,6 @@ impl<D: DirOps + 'static> Inode for ProcDir<D> {
 
     fn rename(&self, _old_name: &str, _target: &Arc<dyn Inode>, _new_name: &str) -> Result<()> {
         Err(Error::new(Errno::EPERM))
-    }
-
-    fn sync(&self) -> Result<()> {
-        Ok(())
     }
 
     fn is_dentry_cacheable(&self) -> bool {

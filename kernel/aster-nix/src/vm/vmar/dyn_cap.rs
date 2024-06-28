@@ -2,8 +2,8 @@
 
 use core::ops::Range;
 
-use aster_frame::vm::VmIo;
 use aster_rights::Rights;
+use ostd::mm::VmIo;
 
 use super::{
     options::VmarChildOptions, vm_mapping::VmarMapOptions, VmPerms, Vmar, VmarRightsOp, Vmar_,
@@ -26,8 +26,8 @@ impl Vmar<Rights> {
     /// # Example
     ///
     /// ```
-    /// use aster_std::prelude::*;
-    /// use aster_std::vm::{PAGE_SIZE, Vmar, VmoOptions};
+    /// use aster_nix::prelude::*;
+    /// use aster_nix::vm::{PAGE_SIZE, Vmar, VmoOptions};
     ///
     /// let vmar = Vmar::new().unwrap();
     /// let vmo = VmoOptions::new(PAGE_SIZE).alloc().unwrap();
@@ -47,11 +47,11 @@ impl Vmar<Rights> {
     /// # Access rights
     ///
     /// This method requires the following access rights:
-    /// 1. The VMAR contains the rights corresponding to the memory permissions of
-    /// the mapping. For example, if `perms` contains `VmPerms::WRITE`,
-    /// then the VMAR must have the Write right.
-    /// 2. Similarly, the VMO contains the rights corresponding to the memory
-    /// permissions of the mapping.  
+    ///  1. The VMAR contains the rights corresponding to the memory permissions of
+    ///     the mapping. For example, if `perms` contains `VmPerms::WRITE`,
+    ///     then the VMAR must have the Write right.
+    ///  2. Similarly, the VMO contains the rights corresponding to the memory
+    ///     permissions of the mapping.  
     ///
     /// Memory permissions may be changed through the `protect` method,
     /// which ensures that any updated memory permissions do not go beyond
@@ -159,13 +159,13 @@ impl Vmar<Rights> {
 }
 
 impl VmIo for Vmar<Rights> {
-    fn read_bytes(&self, offset: usize, buf: &mut [u8]) -> aster_frame::Result<()> {
+    fn read_bytes(&self, offset: usize, buf: &mut [u8]) -> ostd::Result<()> {
         self.check_rights(Rights::READ)?;
         self.0.read(offset, buf)?;
         Ok(())
     }
 
-    fn write_bytes(&self, offset: usize, buf: &[u8]) -> aster_frame::Result<()> {
+    fn write_bytes(&self, offset: usize, buf: &[u8]) -> ostd::Result<()> {
         self.check_rights(Rights::WRITE)?;
         self.0.write(offset, buf)?;
         Ok(())

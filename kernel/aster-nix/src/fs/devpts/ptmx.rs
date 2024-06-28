@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use super::*;
 use crate::{events::IoEvents, fs::inode_handle::FileIo, process::signal::Poller};
 
@@ -21,13 +24,13 @@ pub struct Ptmx {
 struct Inner(Weak<DevPts>);
 
 impl Ptmx {
-    pub fn new(sb: &SuperBlock, fs: Weak<DevPts>) -> Arc<Self> {
+    pub fn new(fs: Weak<DevPts>) -> Arc<Self> {
         let inner = Inner(fs);
         Arc::new(Self {
             metadata: RwLock::new(Metadata::new_device(
                 PTMX_INO,
                 InodeMode::from_bits_truncate(0o666),
-                sb,
+                super::BLOCK_SIZE,
                 &inner,
             )),
             inner,
@@ -119,6 +122,14 @@ impl Inode for Ptmx {
 
     fn set_mtime(&self, time: Duration) {
         self.metadata.write().mtime = time;
+    }
+
+    fn ctime(&self) -> Duration {
+        self.metadata.read().ctime
+    }
+
+    fn set_ctime(&self, time: Duration) {
+        self.metadata.write().ctime = time;
     }
 
     fn read_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {

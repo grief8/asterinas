@@ -51,17 +51,11 @@ myos/
 #### Kernel project
 
 The `src/lib.rs` file contains the code for a simple kernel.
-The function marked with the `#[aster_main]` macro
+The function marked with the `#[ostd::main]` macro
 is considered the kernel entry point by OSDK.
 The kernel 
 will print `Hello world from the guest kernel!`to the console 
 and then abort.
-
-There is also a code snippet that demonstrates
-how to write kernel mode unit tests.
-It follows a similar code pattern as user mode unit tests.
-The test module is marked with the `#[cfg(ktest)]` macro,
-and each test case is marked with `#[ktest]`.
 
 ```rust
 {{#include ../../../../osdk/src/commands/new/kernel.template}}
@@ -71,6 +65,9 @@ and each test case is marked with `#[ktest]`.
 
 The `src/lib.rs` of library project only contains
 a simple kernel mode unit test.
+It follows a similar code pattern as user mode unit tests.
+The test module is marked with the `#[cfg(ktest)]` macro,
+and each test case is marked with `#[ktest]`.
 
 ```rust
 {{#include ../../../../osdk/src/commands/new/lib.template}}
@@ -80,35 +77,39 @@ a simple kernel mode unit test.
 
 The `Cargo.toml` file is the Rust project manifest.
 In addition to the contents of a normal Rust project,
-OSDK will add the dependencies of the Asterinas framework to the file.
+OSDK will add the dependencies of the Asterinas OSTD to the file.
 The dependency version may change over time.
 
 ```toml
-[dependencies.aster_frame]
+[dependencies.ostd]
 git = "https://github.com/asterinas/asterinas"
 branch = "main"
+```
 
-[dependencies.ktest]
-git = "https://github.com/asterinas/asterinas"
-branch = "main"
+OSDK will also exclude the directory 
+which is used to generate temporary files.
+```toml
+[workspace]
+exclude = ["target/osdk/base"]
 ```
 
 ### `OSDK.toml`
 
 The `OSDK.toml` file is a manifest
 that defines the exact behavior of OSDK.
-By default, it contains the following contents.
-It includes settings on how to start QEMU to run a kernel.
+By default, it includes settings on how to start QEMU to run a kernel.
 The meaning of each key can be found
 in the [manifest documentation](../reference/manifest.md).
 Please avoid changing the default settings
 unless you know what you are doing.
 
+The default manifest of a kernel project:
+
 ```toml
-{{#include ../../../../osdk/src/commands/new/lib.OSDK.toml.template}}
+{{#include ../../../../osdk/src/commands/new/kernel.OSDK.toml.template}}
 ```
 
 ### `rust-toolchain.toml`
 
 The Rust toolchain for the kernel.
-It aligns with the toolchain of the Asterinas framework.
+It aligns with the toolchain of the Asterinas OSTD.

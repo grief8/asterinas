@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 mod clone;
-mod credentials;
+pub mod credentials;
 mod exit;
 mod kill;
 pub mod posix_thread;
@@ -14,6 +14,7 @@ mod program_loader;
 mod rlimit;
 pub mod signal;
 mod status;
+pub mod sync;
 mod term_status;
 mod wait;
 
@@ -31,3 +32,8 @@ pub use program_loader::{check_executable_file, load_program_to_vm};
 pub use rlimit::ResourceType;
 pub use term_status::TermStatus;
 pub use wait::{wait_child_exit, WaitOptions};
+
+pub(super) fn init() {
+    process::init();
+    posix_thread::futex::init();
+}

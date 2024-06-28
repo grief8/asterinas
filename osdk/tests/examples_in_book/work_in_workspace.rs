@@ -7,7 +7,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::util::cargo_osdk;
+use crate::util::{cargo_osdk, depends_on_local_ostd};
 
 #[test]
 fn work_in_workspace() {
@@ -28,11 +28,11 @@ fn work_in_workspace() {
 
     // Create a kernel project and a library project
     let kernel = "myos";
-    let module = "mymodule";
+    let module = "mylib";
     cargo_osdk(&["new", "--kernel", kernel]).ok().unwrap();
     cargo_osdk(&["new", module]).ok().unwrap();
 
-    // Add a test function to mymodule/src/lib.rs
+    // Add a test function to mylib/src/lib.rs
     let module_src_path = workspace_dir.join(module).join("src").join("lib.rs");
     assert!(module_src_path.is_file());
     let mut module_src_file = OpenOptions::new()
@@ -41,14 +41,19 @@ fn work_in_workspace() {
         .unwrap();
     module_src_file
         .write_all(include_bytes!(
-            "work_in_workspace_templates/mymodule/src/lib.rs"
+            "work_in_workspace_templates/mylib/src/lib.rs"
         ))
         .unwrap();
     module_src_file.flush().unwrap();
 
+    // Make module depends on local ostd
+    let module_manifest_path = workspace_dir.join(module).join("Cargo.toml");
+    depends_on_local_ostd(module_manifest_path);
+
     // Add dependency to myos/Cargo.toml
     let kernel_manifest_path = workspace_dir.join(kernel).join("Cargo.toml");
     assert!(kernel_manifest_path.is_file());
+    depends_on_local_ostd(&kernel_manifest_path);
     let mut kernel_manifest_file = OpenOptions::new()
         .append(true)
         .open(&kernel_manifest_path)

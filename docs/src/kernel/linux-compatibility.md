@@ -15,7 +15,7 @@ support the loading of Linux kernel modules.
 ## System Calls
 
 At the time of writing,
-Asterinas implements 130 out of the 310+ system calls
+Asterinas implements more than 160 out of the 336 system calls
 provided by Linux on x86-64 architecture.
 
 | Numbers | Names            | Is Implemented  |
@@ -38,8 +38,8 @@ provided by Linux on x86-64 architecture.
 | 15      | rt_sigreturn     | ✅              |
 | 16      | ioctl            | ✅              |
 | 17      | pread64          | ✅              |
-| 18      | pwrite64         | ❌              |
-| 19      | readv            | ❌              |
+| 18      | pwrite64         | ✅              |
+| 19      | readv            | ✅              |
 | 20      | writev           | ✅              |
 | 21      | access           | ✅              |
 | 22      | pipe             | ✅              |
@@ -49,25 +49,25 @@ provided by Linux on x86-64 architecture.
 | 26      | msync            | ❌              |
 | 27      | mincore          | ❌              |
 | 28      | madvise          | ✅              |
-| 29      | shmget           | ✅              |
-| 30      | shmat            | ✅              |
-| 31      | shmctl           | ✅              |
+| 29      | shmget           | ❌              |
+| 30      | shmat            | ❌              |
+| 31      | shmctl           | ❌              |
 | 32      | dup              | ✅              |
 | 33      | dup2             | ✅              |
 | 34      | pause            | ✅              |
 | 35      | nanosleep        | ✅              |
-| 36      | getitimer        | ❌              |
-| 37      | alarm            | ❌              |
-| 38      | setitimer        | ❌              |
+| 36      | getitimer        | ✅              |
+| 37      | alarm            | ✅              |
+| 38      | setitimer        | ✅              |
 | 39      | getpid           | ✅              |
-| 40      | sendfile         | ❌              |
+| 40      | sendfile         | ✅              |
 | 41      | socket           | ✅              |
 | 42      | connect          | ✅              |
 | 43      | accept           | ✅              |
 | 44      | sendto           | ✅              |
 | 45      | recvfrom         | ✅              |
-| 46      | sendmsg          | ❌              |
-| 47      | recvmsg          | ❌              |
+| 46      | sendmsg          | ✅              |
+| 47      | recvmsg          | ✅              |
 | 48      | shutdown         | ✅              |
 | 49      | bind             | ✅              |
 | 50      | listen           | ✅              |
@@ -95,17 +95,17 @@ provided by Linux on x86-64 architecture.
 | 72      | fcntl            | ✅              |
 | 73      | flock            | ❌              |
 | 74      | fsync            | ✅              |
-| 75      | fdatasync        | ❌              |
-| 76      | truncate         | ❌              |
-| 77      | ftruncate        | ❌              |
-| 78      | getdents         | ❌              |
+| 75      | fdatasync        | ✅              |
+| 76      | truncate         | ✅              |
+| 77      | ftruncate        | ✅              |
+| 78      | getdents         | ✅              |
 | 79      | getcwd           | ✅              |
 | 80      | chdir            | ✅              |
 | 81      | fchdir           | ✅              |
 | 82      | rename           | ✅              |
 | 83      | mkdir            | ✅              |
 | 84      | rmdir            | ✅              |
-| 85      | creat            | ❌              |
+| 85      | creat            | ✅              |
 | 86      | link             | ✅              |
 | 87      | unlink           | ✅              |
 | 88      | symlink          | ✅              |
@@ -118,7 +118,7 @@ provided by Linux on x86-64 architecture.
 | 95      | umask            | ✅              |
 | 96      | gettimeofday     | ✅              |
 | 97      | getrlimit        | ❌              |
-| 98      | getrusage        | ❌              |
+| 98      | getrusage        | ✅              |
 | 99      | sysinfo          | ❌              |
 | 100     | times            | ❌              |
 | 101     | ptrace           | ❌              |
@@ -145,14 +145,14 @@ provided by Linux on x86-64 architecture.
 | 122     | setfsuid         | ✅              |
 | 123     | setfsgid         | ✅              |
 | 124     | getsid           | ✅              |
-| 125     | capget           | ❌              |
-| 126     | capset           | ❌              |
-| 127     | rt_sigpending    | ❌              |
+| 125     | capget           | ✅              |
+| 126     | capset           | ✅              |
+| 127     | rt_sigpending    | ✅              |
 | 128     | rt_sigtimedwait  | ❌              |
 | 129     | rt_sigqueueinfo  | ❌              |
 | 130     | rt_sigsuspend    | ✅              |
 | 131     | sigaltstack      | ✅              |
-| 132     | utime            | ❌              |
+| 132     | utime            | ✅              |
 | 133     | mknod            | ❌              |
 | 134     | uselib           | ❌              |
 | 135     | personality      | ❌              |
@@ -160,8 +160,8 @@ provided by Linux on x86-64 architecture.
 | 137     | statfs           | ✅              |
 | 138     | fstatfs          | ✅              |
 | 139     | sysfs            | ❌              |
-| 140     | getpriority      | ❌              |
-| 141     | setpriority      | ❌              |
+| 140     | getpriority      | ✅              |
+| 141     | setpriority      | ✅              |
 | 142     | sched_setparam   | ❌              |
 | 143     | sched_getparam   | ❌              |
 | 144     | sched_setscheduler | ❌            |
@@ -185,8 +185,8 @@ provided by Linux on x86-64 architecture.
 | 162     | sync             | ✅              |
 | 163     | acct             | ❌              |
 | 164     | settimeofday     | ❌              |
-| 165     | mount            | ❌              |
-| 166     | umount2          | ❌              |
+| 165     | mount            | ✅              |
+| 166     | umount2          | ✅              |
 | 167     | swapon           | ❌              |
 | 168     | swapoff          | ❌              |
 | 169     | reboot           | ❌              |
@@ -224,7 +224,7 @@ provided by Linux on x86-64 architecture.
 | 201     | time             | ✅              |
 | 202     | futex            | ✅              |
 | 203     | sched_setaffinity | ❌             |
-| 204     | sched_getaffinity | ❌             |
+| 204     | sched_getaffinity | ✅             |
 | 205     | set_thread_area  | ❌              |
 | 206     | io_setup         | ❌              |
 | 207     | io_destroy       | ❌              |
@@ -242,11 +242,11 @@ provided by Linux on x86-64 architecture.
 | 219     | restart_syscall  | ❌              |
 | 220     | semtimedop       | ❌              |
 | 221     | fadvise64        | ❌              |
-| 222     | timer_create     | ❌              |
-| 223     | timer_settime    | ❌              |
-| 224     | timer_gettime    | ❌              |
+| 222     | timer_create     | ✅              |
+| 223     | timer_settime    | ✅              |
+| 224     | timer_gettime    | ✅              |
 | 225     | timer_getoverrun | ❌              |
-| 226     | timer_delete     | ❌              |
+| 226     | timer_delete     | ✅              |
 | 227     | clock_settime    | ❌              |
 | 228     | clock_gettime    | ✅              |
 | 229     | clock_getres     | ❌              |
@@ -255,7 +255,7 @@ provided by Linux on x86-64 architecture.
 | 232     | epoll_wait       | ✅              |
 | 233     | epoll_ctl        | ✅              |
 | 234     | tgkill           | ✅              |
-| 235     | utimes           | ❌              |
+| 235     | utimes           | ✅              |
 | 236     | vserver          | ❌              |
 | 237     | mbind            | ❌              |
 | 238     | set_mempolicy    | ❌              |
@@ -281,7 +281,7 @@ provided by Linux on x86-64 architecture.
 | 258     | mkdirat          | ✅              |
 | 259     | mknodat          | ❌              |
 | 260     | fchownat         | ✅              |
-| 261     | futimesat        | ❌              |
+| 261     | futimesat        | ✅              |
 | 262     | newfstatat       | ✅              |
 | 263     | unlinkat         | ✅              |
 | 264     | renameat         | ✅              |
@@ -289,7 +289,7 @@ provided by Linux on x86-64 architecture.
 | 266     | symlinkat        | ✅              |
 | 267     | readlinkat       | ✅              |
 | 268     | fchmodat         | ✅              |
-| 269     | faccessat        | ❌              |
+| 269     | faccessat        | ✅              |
 | 270     | pselect6         | ❌              |
 | 271     | ppoll            | ❌              |
 | 272     | unshare          | ❌              |
@@ -312,11 +312,11 @@ provided by Linux on x86-64 architecture.
 | 289     | signalfd4        | ❌              |
 | 290     | eventfd2         | ✅              |
 | 291     | epoll_create1    | ✅              |
-| 292     | dup3             | ❌              |
+| 292     | dup3             | ✅              |
 | 293     | pipe2            | ✅              |
 | 294     | inotify_init1    | ❌              |
-| 295     | preadv           | ❌              |
-| 296     | pwritev          | ❌              |
+| 295     | preadv           | ✅              |
+| 296     | pwritev          | ✅              |
 | 297     | rt_tgsigqueueinfo | ❌             |
 | 298     | perf_event_open  | ❌              |
 | 299     | recvmmsg         | ❌              |
@@ -336,6 +336,8 @@ provided by Linux on x86-64 architecture.
 | 313	  | finit_module     | ❌              |
 | 318	  | getrandom        | ✅              |
 | 322	  | execveat         | ✅              |
+| 327	  | preadv2          | ✅              |
+| 328	  | pwritev2         | ✅              |
 | 435	  | clone3           | ✅              |
 
 ## File Systems

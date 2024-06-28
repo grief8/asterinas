@@ -2,7 +2,7 @@
 
 //! The console device of Asterinas.
 #![no_std]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 #![feature(fn_traits)]
 
 extern crate alloc;
@@ -10,8 +10,8 @@ extern crate alloc;
 use alloc::{collections::BTreeMap, fmt::Debug, string::String, sync::Arc, vec::Vec};
 use core::any::Any;
 
-use aster_frame::{sync::SpinLock, vm::VmReader};
 use component::{init_component, ComponentInitError};
+use ostd::{mm::VmReader, sync::SpinLock};
 use spin::Once;
 
 pub type ConsoleCallback = dyn Fn(VmReader) + Send + Sync;

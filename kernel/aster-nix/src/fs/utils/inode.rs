@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(unused_variables)]
+
 use core::time::Duration;
 
 use aster_rights::Full;
 use core2::io::{Error as IoError, ErrorKind as IoErrorKind, Result as IoResult, Write};
 
-use super::{DirentVisitor, FileSystem, IoctlCmd, SuperBlock};
+use super::{DirentVisitor, FileSystem, IoctlCmd};
 use crate::{
     events::IoEvents,
     fs::device::{Device, DeviceType},
     prelude::*,
     process::{signal::Poller, Gid, Uid},
+    time::clocks::RealTimeCoarseClock,
     vm::vmo::Vmo,
 };
 
@@ -118,7 +121,7 @@ impl InodeMode {
 #[derive(Debug, Clone, Copy)]
 pub struct Metadata {
     pub dev: u64,
-    pub ino: usize,
+    pub ino: u64,
     pub size: usize,
     pub blk_size: usize,
     pub blocks: usize,
@@ -134,16 +137,17 @@ pub struct Metadata {
 }
 
 impl Metadata {
-    pub fn new_dir(ino: usize, mode: InodeMode, sb: &SuperBlock) -> Self {
+    pub fn new_dir(ino: u64, mode: InodeMode, blk_size: usize) -> Self {
+        let now = RealTimeCoarseClock::get().read_time();
         Self {
             dev: 0,
             ino,
             size: 2,
-            blk_size: sb.bsize,
+            blk_size,
             blocks: 1,
-            atime: Default::default(),
-            mtime: Default::default(),
-            ctime: Default::default(),
+            atime: now,
+            mtime: now,
+            ctime: now,
             type_: InodeType::Dir,
             mode,
             nlinks: 2,
@@ -153,16 +157,17 @@ impl Metadata {
         }
     }
 
-    pub fn new_file(ino: usize, mode: InodeMode, sb: &SuperBlock) -> Self {
+    pub fn new_file(ino: u64, mode: InodeMode, blk_size: usize) -> Self {
+        let now = RealTimeCoarseClock::get().read_time();
         Self {
             dev: 0,
             ino,
             size: 0,
-            blk_size: sb.bsize,
+            blk_size,
             blocks: 0,
-            atime: Default::default(),
-            mtime: Default::default(),
-            ctime: Default::default(),
+            atime: now,
+            mtime: now,
+            ctime: now,
             type_: InodeType::File,
             mode,
             nlinks: 1,
@@ -172,16 +177,17 @@ impl Metadata {
         }
     }
 
-    pub fn new_symlink(ino: usize, mode: InodeMode, sb: &SuperBlock) -> Self {
+    pub fn new_symlink(ino: u64, mode: InodeMode, blk_size: usize) -> Self {
+        let now = RealTimeCoarseClock::get().read_time();
         Self {
             dev: 0,
             ino,
             size: 0,
-            blk_size: sb.bsize,
+            blk_size,
             blocks: 0,
-            atime: Default::default(),
-            mtime: Default::default(),
-            ctime: Default::default(),
+            atime: now,
+            mtime: now,
+            ctime: now,
             type_: InodeType::SymLink,
             mode,
             nlinks: 1,
@@ -190,16 +196,17 @@ impl Metadata {
             rdev: 0,
         }
     }
-    pub fn new_device(ino: usize, mode: InodeMode, sb: &SuperBlock, device: &dyn Device) -> Self {
+    pub fn new_device(ino: u64, mode: InodeMode, blk_size: usize, device: &dyn Device) -> Self {
+        let now = RealTimeCoarseClock::get().read_time();
         Self {
             dev: 0,
             ino,
             size: 0,
-            blk_size: sb.bsize,
+            blk_size,
             blocks: 0,
-            atime: Default::default(),
-            mtime: Default::default(),
-            ctime: Default::default(),
+            atime: now,
+            mtime: now,
+            ctime: now,
             type_: InodeType::from(device.type_()),
             mode,
             nlinks: 1,
@@ -209,16 +216,17 @@ impl Metadata {
         }
     }
 
-    pub fn new_socket(ino: usize, mode: InodeMode, sb: &SuperBlock) -> Metadata {
+    pub fn new_socket(ino: u64, mode: InodeMode, blk_size: usize) -> Metadata {
+        let now = RealTimeCoarseClock::get().read_time();
         Self {
             dev: 0,
             ino,
             size: 0,
-            blk_size: sb.bsize,
+            blk_size,
             blocks: 0,
-            atime: Default::default(),
-            mtime: Default::default(),
-            ctime: Default::default(),
+            atime: now,
+            mtime: now,
+            ctime: now,
             type_: InodeType::Socket,
             mode,
             nlinks: 1,
@@ -259,6 +267,10 @@ pub trait Inode: Any + Sync + Send {
     fn mtime(&self) -> Duration;
 
     fn set_mtime(&self, time: Duration);
+
+    fn ctime(&self) -> Duration;
+
+    fn set_ctime(&self, time: Duration);
 
     fn page_cache(&self) -> Option<Vmo<Full>> {
         None
@@ -328,7 +340,11 @@ pub trait Inode: Any + Sync + Send {
         Err(Error::new(Errno::EISDIR))
     }
 
-    fn sync(&self) -> Result<()> {
+    fn sync_all(&self) -> Result<()> {
+        Ok(())
+    }
+
+    fn sync_data(&self) -> Result<()> {
         Ok(())
     }
 

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(unused_variables)]
+
 use core::time::Duration;
 
 use aster_util::slot_vec::SlotVec;
@@ -25,9 +27,9 @@ mod slave;
 const DEVPTS_MAGIC: u64 = 0x1cd1;
 const BLOCK_SIZE: usize = 1024;
 
-const ROOT_INO: usize = 1;
-const PTMX_INO: usize = 2;
-const FIRST_SLAVE_INO: usize = 3;
+const ROOT_INO: u64 = 1;
+const PTMX_INO: u64 = 2;
+const FIRST_SLAVE_INO: u64 = 3;
 
 /// The max number of pty pairs.
 const MAX_PTY_NUM: usize = 4096;
@@ -39,18 +41,17 @@ const MAX_PTY_NUM: usize = 4096;
 ///
 /// Actually, the "/dev/ptmx" is a symlink to the real device at "/dev/pts/ptmx".
 pub struct DevPts {
-    root: Arc<RootInode>,
     sb: SuperBlock,
+    root: Arc<RootInode>,
     index_alloc: Mutex<IdAlloc>,
     this: Weak<Self>,
 }
 
 impl DevPts {
     pub fn new() -> Arc<Self> {
-        let sb = SuperBlock::new(DEVPTS_MAGIC, BLOCK_SIZE, NAME_MAX);
         Arc::new_cyclic(|weak_self| Self {
-            root: RootInode::new(weak_self.clone(), &sb),
-            sb,
+            sb: SuperBlock::new(DEVPTS_MAGIC, BLOCK_SIZE, NAME_MAX),
+            root: RootInode::new(weak_self.clone()),
             index_alloc: Mutex::new(IdAlloc::with_capacity(MAX_PTY_NUM)),
             this: weak_self.clone(),
         })
@@ -110,14 +111,14 @@ struct RootInode {
 }
 
 impl RootInode {
-    pub fn new(fs: Weak<DevPts>, sb: &SuperBlock) -> Arc<Self> {
+    pub fn new(fs: Weak<DevPts>) -> Arc<Self> {
         Arc::new(Self {
-            ptmx: Ptmx::new(sb, fs.clone()),
+            ptmx: Ptmx::new(fs.clone()),
             slaves: RwLock::new(SlotVec::new()),
             metadata: RwLock::new(Metadata::new_dir(
                 ROOT_INO,
                 InodeMode::from_bits_truncate(0o755),
-                sb,
+                BLOCK_SIZE,
             )),
             fs,
         })
@@ -207,6 +208,14 @@ impl Inode for RootInode {
 
     fn set_mtime(&self, time: Duration) {
         self.metadata.write().mtime = time;
+    }
+
+    fn ctime(&self) -> Duration {
+        self.metadata.read().ctime
+    }
+
+    fn set_ctime(&self, time: Duration) {
+        self.metadata.write().ctime = time;
     }
 
     fn create(&self, name: &str, type_: InodeType, mode: InodeMode) -> Result<Arc<dyn Inode>> {

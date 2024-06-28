@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+use aster_frame::mm::{DmaCoherent, FrameAllocOptions, HasPaddr, VmIo};
 use tdx_guest::tdcall::{get_report, TdCallError};
 
 use super::*;
@@ -8,7 +9,7 @@ use crate::{
     events::IoEvents,
     fs::{inode_handle::FileIo, utils::IoctlCmd},
     process::signal::Poller,
-    util::{read_val_from_user, write_val_to_user},
+    util::{read_val_from_user, write_bytes_to_user},
 };
 
 const TDX_REPORTDATA_LEN: usize = 64;
@@ -17,8 +18,8 @@ const TDX_REPORT_LEN: usize = 1024;
 #[derive(Debug, Clone, Copy, Pod)]
 #[repr(C)]
 pub struct TdxReportRequest {
-    reportdata: [u8; TDX_REPORTDATA_LEN],
-    tdreport: [u8; TDX_REPORT_LEN],
+    report_data: [u8; TDX_REPORTDATA_LEN],
+    tdx_report: [u8; TDX_REPORT_LEN],
 }
 
 pub struct TdxGuest;
@@ -57,31 +58,58 @@ impl From<TdCallError> for Error {
 }
 
 impl FileIo for TdxGuest {
-    fn read(&self, buf: &mut [u8]) -> Result<usize> {
+    fn read(&self, _buf: &mut [u8]) -> Result<usize> {
         return_errno_with_message!(Errno::EPERM, "Read operation not supported")
     }
 
-    fn write(&self, buf: &[u8]) -> Result<usize> {
+    fn write(&self, _buf: &[u8]) -> Result<usize> {
         return_errno_with_message!(Errno::EPERM, "Write operation not supported")
     }
 
     fn ioctl(&self, cmd: IoctlCmd, arg: usize) -> Result<i32> {
         match cmd {
-            IoctlCmd::TDXGETREPORT => {
-                let tdx_report: TdxReportRequest = read_val_from_user(arg)?;
-                match get_report(&tdx_report.tdreport, &tdx_report.reportdata) {
-                    Ok(_) => {}
-                    Err(err) => return Err(err.into()),
-                };
-                write_val_to_user(arg, &tdx_report)?;
-                Ok(0)
-            }
+            IoctlCmd::TDXGETREPORT => handle_get_report(arg),
             _ => return_errno_with_message!(Errno::EPERM, "Unsupported ioctl"),
         }
     }
 
-    fn poll(&self, mask: IoEvents, poller: Option<&Poller>) -> IoEvents {
+    fn poll(&self, mask: IoEvents, _poller: Option<&Poller>) -> IoEvents {
         let events = IoEvents::IN | IoEvents::OUT;
         events & mask
     }
+}
+
+fn handle_get_report(arg: usize) -> Result<i32> {
+    const SHARED_BIT: u8 = 51;
+    const SHARED_MASK: u64 = 1u64 << SHARED_BIT;
+    let user_request: TdxReportRequest = read_val_from_user(arg)?;
+
+    let vm_segment = FrameAllocOptions::new(2)
+        .is_contiguous(true)
+        .alloc_contiguous()
+        .unwrap();
+    let dma_coherent = DmaCoherent::map(vm_segment, false).unwrap();
+    dma_coherent
+        .write_bytes(0, &user_request.report_data)
+        .unwrap();
+    // 1024-byte alignment.
+    dma_coherent
+        .write_bytes(1024, &user_request.tdx_report)
+        .unwrap();
+
+    if let Err(err) = get_report(
+        ((dma_coherent.paddr() + 1024) as u64) | SHARED_MASK,
+        (dma_coherent.paddr() as u64) | SHARED_MASK,
+    ) {
+        println!("[kernel]: get TDX report error: {:?}", err);
+        return Err(err.into());
+    }
+
+    let tdx_report_vaddr = arg + TDX_REPORTDATA_LEN;
+    let mut generated_report = vec![0u8; TDX_REPORT_LEN];
+    dma_coherent
+        .read_bytes(1024, &mut generated_report)
+        .unwrap();
+    write_bytes_to_user(tdx_report_vaddr, &generated_report)?;
+    Ok(0)
 }

@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use super::*;
 use crate::{
     device::PtySlave, events::IoEvents, fs::inode_handle::FileIo, process::signal::Poller,
@@ -19,9 +22,9 @@ impl PtySlaveInode {
     pub fn new(device: Arc<PtySlave>, fs: Weak<DevPts>) -> Arc<Self> {
         Arc::new(Self {
             metadata: RwLock::new(Metadata::new_device(
-                device.index() as usize + FIRST_SLAVE_INO,
+                device.index() as u64 + FIRST_SLAVE_INO,
                 InodeMode::from_bits_truncate(0o620),
-                &fs.upgrade().unwrap().sb(),
+                super::BLOCK_SIZE,
                 device.as_ref(),
             )),
             device,
@@ -100,6 +103,14 @@ impl Inode for PtySlaveInode {
 
     fn set_mtime(&self, time: Duration) {
         self.metadata.write().mtime = time;
+    }
+
+    fn ctime(&self) -> Duration {
+        self.metadata.read().ctime
+    }
+
+    fn set_ctime(&self, time: Duration) {
+        self.metadata.write().ctime = time;
     }
 
     fn read_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {

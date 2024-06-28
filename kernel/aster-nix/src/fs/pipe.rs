@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(dead_code)]
+
 use super::{
     file_handle::FileLike,
     utils::{AccessMode, Consumer, InodeMode, InodeType, Metadata, Producer, StatusFlags},
@@ -8,6 +10,7 @@ use crate::{
     events::{IoEvents, Observer},
     prelude::*,
     process::{signal::Poller, Gid, Uid},
+    time::clocks::RealTimeCoarseClock,
 };
 
 pub struct PipeReader {
@@ -42,15 +45,16 @@ impl FileLike for PipeReader {
     }
 
     fn metadata(&self) -> Metadata {
+        let now = RealTimeCoarseClock::get().read_time();
         Metadata {
             dev: 0,
             ino: 0,
             size: 0,
             blk_size: 0,
             blocks: 0,
-            atime: Default::default(),
-            mtime: Default::default(),
-            ctime: Default::default(),
+            atime: now,
+            mtime: now,
+            ctime: now,
             type_: InodeType::NamedPipe,
             mode: InodeMode::from_bits_truncate(0o400),
             nlinks: 1,
@@ -108,15 +112,16 @@ impl FileLike for PipeWriter {
     }
 
     fn metadata(&self) -> Metadata {
+        let now = RealTimeCoarseClock::get().read_time();
         Metadata {
             dev: 0,
             ino: 0,
             size: 0,
             blk_size: 0,
             blocks: 0,
-            atime: Default::default(),
-            mtime: Default::default(),
-            ctime: Default::default(),
+            atime: now,
+            mtime: now,
+            ctime: now,
             type_: InodeType::NamedPipe,
             mode: InodeMode::from_bits_truncate(0o200),
             nlinks: 1,

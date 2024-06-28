@@ -17,15 +17,16 @@ pub struct ProcFile<F: FileOps> {
 }
 
 impl<F: FileOps> ProcFile<F> {
-    pub fn new(file: F, fs: Arc<dyn FileSystem>, is_volatile: bool) -> Arc<Self> {
+    pub fn new(file: F, fs: Weak<dyn FileSystem>, is_volatile: bool) -> Arc<Self> {
         let common = {
-            let procfs = fs.downcast_ref::<ProcFS>().unwrap();
+            let arc_fs = fs.upgrade().unwrap();
+            let procfs = arc_fs.downcast_ref::<ProcFS>().unwrap();
             let metadata = Metadata::new_file(
                 procfs.alloc_id(),
                 InodeMode::from_bits_truncate(0o444),
-                &fs.sb(),
+                super::BLOCK_SIZE,
             );
-            Common::new(metadata, Arc::downgrade(&fs), is_volatile)
+            Common::new(metadata, fs, is_volatile)
         };
         Arc::new(Self {
             inner: file,
@@ -49,6 +50,8 @@ impl<F: FileOps + 'static> Inode for ProcFile<F> {
     fn set_atime(&self, time: Duration);
     fn mtime(&self) -> Duration;
     fn set_mtime(&self, time: Duration);
+    fn ctime(&self) -> Duration;
+    fn set_ctime(&self, time: Duration);
     fn fs(&self) -> Arc<dyn FileSystem>;
 
     fn resize(&self, _new_size: usize) -> Result<()> {
@@ -90,10 +93,6 @@ impl<F: FileOps + 'static> Inode for ProcFile<F> {
 
     fn ioctl(&self, _cmd: IoctlCmd, _arg: usize) -> Result<i32> {
         Err(Error::new(Errno::EPERM))
-    }
-
-    fn sync(&self) -> Result<()> {
-        Ok(())
     }
 
     fn is_dentry_cacheable(&self) -> bool {

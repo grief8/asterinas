@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use crate::{
     net::{
         iface::Ipv4Address,
-        socket::{unix::UnixSocketAddr, SocketAddr},
+        socket::{unix::UnixSocketAddr, vsock::VsockSocketAddr, SocketAddr},
     },
     prelude::*,
     util::{read_bytes_from_user, read_val_from_user, write_val_to_user},
@@ -52,6 +55,14 @@ pub fn read_socket_addr_from_user(addr: Vaddr, addr_len: usize) -> Result<Socket
             let sock_addr_in6: CSocketAddrInet6 = read_val_from_user(addr)?;
             todo!()
         }
+        CSocketAddrFamily::AF_VSOCK => {
+            debug_assert!(addr_len >= core::mem::size_of::<CSocketAddrVm>());
+            let sock_addr_vm: CSocketAddrVm = read_val_from_user(addr)?;
+            SocketAddr::Vsock(VsockSocketAddr::new(
+                sock_addr_vm.svm_cid,
+                sock_addr_vm.svm_port,
+            ))
+        }
         _ => {
             return_errno_with_message!(Errno::EAFNOSUPPORT, "cannot support address for the family")
         }
@@ -68,7 +79,25 @@ pub fn write_socket_addr_to_user(
     if addrlen_ptr == 0 {
         return_errno_with_message!(Errno::EINVAL, "must provide the addrlen ptr");
     }
-    let max_len = read_val_from_user::<i32>(addrlen_ptr)? as usize;
+
+    let write_size = {
+        let max_len = read_val_from_user::<i32>(addrlen_ptr)?;
+        write_socket_addr_with_max_len(socket_addr, dest, max_len)?
+    };
+
+    if addrlen_ptr != 0 {
+        write_val_to_user(addrlen_ptr, &write_size)?;
+    }
+    Ok(())
+}
+
+pub fn write_socket_addr_with_max_len(
+    socket_addr: &SocketAddr,
+    dest: Vaddr,
+    max_len: i32,
+) -> Result<i32> {
+    let max_len = max_len as usize;
+
     let write_size = match socket_addr {
         SocketAddr::Unix(path) => {
             let sock_addr_unix = CSocketAddrUnix::try_from(path)?;
@@ -86,11 +115,15 @@ pub fn write_socket_addr_to_user(
             write_size as i32
         }
         SocketAddr::IPv6 => todo!(),
+        SocketAddr::Vsock(addr) => {
+            let vm_addr = CSocketAddrVm::new(addr.cid, addr.port);
+            let write_size = core::mem::size_of::<CSocketAddrVm>();
+            write_val_to_user(dest, &vm_addr)?;
+            write_size as i32
+        }
     };
-    if addrlen_ptr != 0 {
-        write_val_to_user(addrlen_ptr, &write_size)?;
-    }
-    Ok(())
+
+    Ok(write_size)
 }
 
 /// PlaceHolder
@@ -205,6 +238,34 @@ pub struct CSocketAddrInet6 {
     sin6_addr: CInet6Addr,
     // Scope ID
     sin6_scope_id: u32,
+}
+
+/// vm socket address
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pod)]
+pub struct CSocketAddrVm {
+    /// always [SaFamily::AF_VSOCK]
+    svm_family: u16,
+    /// always 0
+    svm_reserved1: u16,
+    /// Port number in host byte order.
+    svm_port: u32,
+    /// Address in host byte order.
+    svm_cid: u32,
+    /// Pad to size of [SockAddr] structure (16 bytes), must be zero-filled
+    svm_zero: [u8; 4],
+}
+
+impl CSocketAddrVm {
+    pub fn new(cid: u32, port: u32) -> Self {
+        Self {
+            svm_family: CSocketAddrFamily::AF_VSOCK as _,
+            svm_reserved1: 0,
+            svm_port: port,
+            svm_cid: cid,
+            svm_zero: [0u8; 4],
+        }
+    }
 }
 
 /// Address family. The definition is from https://elixir.bootlin.com/linux/v6.0.9/source/include/linux/socket.h.

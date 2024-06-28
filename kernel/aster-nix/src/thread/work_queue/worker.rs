@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use aster_frame::{cpu::CpuSet, task::Priority};
+#![allow(dead_code)]
+
+use ostd::{cpu::CpuSet, task::Priority};
 
 use super::worker_pool::WorkerPool;
 use crate::{
@@ -93,6 +95,10 @@ impl Worker {
             }
         }
         self.exit();
+    }
+
+    pub(super) fn bound_thread(&self) -> &Arc<Thread> {
+        &self.bound_thread
     }
 
     pub(super) fn is_idle(&self) -> bool {

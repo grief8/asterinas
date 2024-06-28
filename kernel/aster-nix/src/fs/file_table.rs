@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(unused_variables)]
+
 use core::sync::atomic::{AtomicU8, Ordering};
 
 use aster_util::slot_vec::SlotVec;
@@ -97,7 +99,7 @@ impl FileTable {
         item: Arc<dyn FileLike>,
         flags: FdFlags,
     ) -> Option<Arc<dyn FileLike>> {
-        let entry = FileTableEntry::new(item, FdFlags::empty());
+        let entry = FileTableEntry::new(item, flags);
         let entry = self.table.put_at(fd as usize, entry);
         if entry.is_some() {
             let events = FdEvents::Close(fd);
@@ -193,6 +195,12 @@ impl FileTable {
 
     fn notify_fd_events(&self, events: &FdEvents) {
         self.subject.notify_observers(events);
+    }
+}
+
+impl Default for FileTable {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

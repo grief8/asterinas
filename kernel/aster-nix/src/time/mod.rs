@@ -12,6 +12,7 @@ use crate::prelude::*;
 
 pub mod clocks;
 mod core;
+mod softirq;
 mod system_time;
 pub mod wait;
 
@@ -23,6 +24,7 @@ pub type clock_t = i64;
 pub(super) fn init() {
     system_time::init();
     clocks::init();
+    softirq::init();
 }
 
 #[repr(C)]
@@ -36,6 +38,15 @@ impl From<Duration> for timespec_t {
     fn from(duration: Duration) -> timespec_t {
         let sec = duration.as_secs() as time_t;
         let nsec = duration.subsec_nanos() as i64;
+        debug_assert!(sec >= 0); // nsec >= 0 always holds
+        timespec_t { sec, nsec }
+    }
+}
+
+impl From<timeval_t> for timespec_t {
+    fn from(timeval: timeval_t) -> timespec_t {
+        let sec = timeval.sec;
+        let nsec = timeval.usec * 1000;
         debug_assert!(sec >= 0); // nsec >= 0 always holds
         timespec_t { sec, nsec }
     }
@@ -92,4 +103,20 @@ impl From<UnixTime> for Duration {
     fn from(time: UnixTime) -> Self {
         Duration::from_secs(time.sec as _)
     }
+}
+
+/// This struct is corresponding to the `itimerval` struct in Linux.
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone, Pod)]
+pub struct itimerval_t {
+    pub it_interval: timeval_t,
+    pub it_value: timeval_t,
+}
+
+/// This struct is corresponding to the `itimerspec` struct in Linux.
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone, Pod)]
+pub struct itimerspec_t {
+    pub it_interval: timespec_t,
+    pub it_value: timespec_t,
 }

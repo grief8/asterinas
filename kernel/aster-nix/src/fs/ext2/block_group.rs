@@ -28,7 +28,7 @@ struct BlockGroupImpl {
 impl BlockGroup {
     /// Loads and constructs a block group.
     pub fn load(
-        group_descriptors_segment: &VmSegment,
+        group_descriptors_segment: &Segment,
         idx: usize,
         block_device: &dyn BlockDevice,
         super_block: &SuperBlock,
@@ -141,7 +141,7 @@ impl BlockGroup {
 
     /// Inserts the inode into the inode cache.
     ///
-    /// # Panic
+    /// # Panics
     ///
     /// If `inode_idx` has not been allocated before, then the method panics.
     pub fn insert_cache(&self, inode_idx: u32, inode: Arc<Inode>) {
@@ -163,7 +163,7 @@ impl BlockGroup {
 
     /// Frees the allocated inode idx.
     ///
-    /// # Panic
+    /// # Panics
     ///
     /// If `inode_idx` has not been allocated before, then the method panics.
     pub fn free_inode(&self, inode_idx: u32, is_dir: bool) {
@@ -192,7 +192,7 @@ impl BlockGroup {
 
     /// Frees the consecutive range of allocated block indices.
     ///
-    /// # Panic
+    /// # Panics
     ///
     ///  If the `range` is out of bounds, this method will panic.
     ///  If one of the `idx` in `range` has not been allocated before, then the method panics.
@@ -318,12 +318,12 @@ impl Debug for BlockGroup {
 }
 
 impl PageCacheBackend for BlockGroupImpl {
-    fn read_page(&self, idx: usize, frame: &VmFrame) -> Result<BioWaiter> {
+    fn read_page(&self, idx: usize, frame: &Frame) -> Result<BioWaiter> {
         let bid = self.inode_table_bid + idx as Ext2Bid;
         self.fs.upgrade().unwrap().read_block_async(bid, frame)
     }
 
-    fn write_page(&self, idx: usize, frame: &VmFrame) -> Result<BioWaiter> {
+    fn write_page(&self, idx: usize, frame: &Frame) -> Result<BioWaiter> {
         let bid = self.inode_table_bid + idx as Ext2Bid;
         self.fs.upgrade().unwrap().write_block_async(bid, frame)
     }

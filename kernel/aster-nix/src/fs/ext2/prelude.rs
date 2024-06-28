@@ -11,11 +11,11 @@ pub(super) use aster_block::{
     id::Bid,
     BlockDevice, BLOCK_SIZE,
 };
-pub(super) use aster_frame::{
-    sync::{RwMutex, RwMutexReadGuard, RwMutexWriteGuard},
-    vm::{VmAllocOptions, VmFrame, VmIo, VmSegment},
-};
 pub(super) use aster_rights::Full;
+pub(super) use ostd::{
+    mm::{Frame, FrameAllocOptions, Segment, VmIo},
+    sync::{RwMutex, RwMutexReadGuard, RwMutexWriteGuard},
+};
 pub(super) use static_assertions::const_assert;
 
 pub(super) use super::utils::{Dirty, IsPowerOf};

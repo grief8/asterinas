@@ -2,6 +2,7 @@
 
 # Global options.
 ARCH ?= x86_64
+BENCHMARK ?= none
 BOOT_METHOD ?= grub-rescue-iso
 BOOT_PROTOCOL ?= multiboot2
 BUILD_SYSCALL_TEST ?= 0
@@ -34,6 +35,14 @@ else ifeq ($(AUTO_TEST), regression)
 CARGO_OSDK_ARGS += --init-args="/regression/run_regression_test.sh"
 else ifeq ($(AUTO_TEST), boot)
 CARGO_OSDK_ARGS += --init-args="/regression/boot_hello.sh"
+else ifeq ($(AUTO_TEST), vsock)
+export VSOCK=1
+CARGO_OSDK_ARGS += --init-args="/regression/run_vsock_test.sh"
+endif
+
+# If the BENCHMARK is set, we will run the benchmark in the kernel mode.
+ifneq ($(BENCHMARK), none)
+CARGO_OSDK_ARGS += --init-args="/benchmark/$(BENCHMARK)/run.sh"
 endif
 
 ifeq ($(RELEASE_LTO), 1)
@@ -43,6 +52,8 @@ CARGO_OSDK_ARGS += --release
 endif
 
 ifeq ($(INTEL_TDX), 1)
+BOOT_PROTOCOL = linux-efi-handover64
+CARGO_OSDK_ARGS += --scheme tdx
 CARGO_OSDK_ARGS += --features intel_tdx
 endif
 
@@ -74,13 +85,12 @@ export
 # Basically, non-OSDK crates do not depend on Aster Frame and can be checked
 # or tested without OSDK.
 NON_OSDK_CRATES := \
-	framework/libs/align_ext \
-	framework/libs/aster-main \
-	framework/libs/id-alloc \
-	framework/libs/linux-bzimage/builder \
-	framework/libs/linux-bzimage/boot-params \
-	framework/libs/ktest \
-	framework/libs/ktest-proc-macro \
+	ostd/libs/align_ext \
+	ostd/libs/id-alloc \
+	ostd/libs/linux-bzimage/builder \
+	ostd/libs/linux-bzimage/boot-params \
+	ostd/libs/ktest \
+	ostd/libs/ostd-macros \
 	kernel/libs/cpio-decoder \
 	kernel/libs/int-to-c-enum \
 	kernel/libs/int-to-c-enum/derive \
@@ -90,11 +100,11 @@ NON_OSDK_CRATES := \
 	kernel/libs/typeflags \
 	kernel/libs/typeflags-util
 
-# In contrast, OSDK crates depend on Aster Frame (or being aster-frame itself)
+# In contrast, OSDK crates depend on OSTD (or being `ostd` itself)
 # and need to be built or tested with OSDK.
 OSDK_CRATES := \
-	framework/aster-frame \
-	framework/libs/linux-bzimage/setup \
+	ostd \
+	ostd/libs/linux-bzimage/setup \
 	kernel \
 	kernel/aster-nix \
 	kernel/comps/block \
@@ -137,13 +147,20 @@ run: build
 	@cargo osdk run $(CARGO_OSDK_ARGS)
 # Check the running status of auto tests from the QEMU log
 ifeq ($(AUTO_TEST), syscall)
-	@tail --lines 100 qemu.log | grep -q "^.* of .* test cases passed." || (echo "Syscall test failed" && exit 1)
+	@tail --lines 100 qemu.log | grep -q "^.* of .* test cases passed." \
+		|| (echo "Syscall test failed" && exit 1)
 else ifeq ($(AUTO_TEST), regression)
-	@tail --lines 100 qemu.log | grep -q "^All regression tests passed." || (echo "Regression test failed" && exit 1)
+	@tail --lines 100 qemu.log | grep -q "^All regression tests passed." \
+		|| (echo "Regression test failed" && exit 1)
 else ifeq ($(AUTO_TEST), boot)
-	@tail --lines 100 qemu.log | grep -q "^Successfully booted." || (echo "Boot test failed" && exit 1)
+	@tail --lines 100 qemu.log | grep -q "^Successfully booted." \
+		|| (echo "Boot test failed" && exit 1)
+else ifeq ($(AUTO_TEST), vsock)
+	@tail --lines 100 qemu.log | grep -q "^Vsock test passed." \
+		|| (echo "Vsock test failed" && exit 1)
 endif
 
+.PHONY: gdb_server
 gdb_server: initramfs $(CARGO_OSDK)
 	@cargo osdk run $(CARGO_OSDK_ARGS) -G --vsc --gdb-server-addr :$(GDB_TCP_PORT)
 
@@ -161,10 +178,11 @@ test:
 ktest: initramfs $(CARGO_OSDK)
 	@# Exclude linux-bzimage-setup from ktest since it's hard to be unit tested
 	@for dir in $(OSDK_CRATES); do \
-		[ $$dir = "framework/libs/linux-bzimage/setup" ] && continue; \
+		[ $$dir = "ostd/libs/linux-bzimage/setup" ] && continue; \
 		(cd $$dir && cargo osdk test) || exit 1; \
 	done
 
+.PHONY: docs
 docs: $(CARGO_OSDK)
 	@for dir in $(NON_OSDK_CRATES); do \
 		(cd $$dir && cargo doc --no-deps) || exit 1; \
@@ -172,7 +190,7 @@ docs: $(CARGO_OSDK)
 	@for dir in $(OSDK_CRATES); do \
 		(cd $$dir && cargo osdk doc --no-deps) || exit 1; \
 	done
-	@echo "" 								# Add a blank line
+	@echo "" 						# Add a blank line
 	@cd docs && mdbook build 				# Build mdBook
 
 .PHONY: format
@@ -189,7 +207,8 @@ check: $(CARGO_OSDK)
 		sort > /tmp/all_crates
 	@echo $(NON_OSDK_CRATES) $(OSDK_CRATES) | tr ' ' '\n' | sort > /tmp/combined_crates
 	@diff -B /tmp/all_crates /tmp/combined_crates || \
-		(echo "Error: STD_CRATES and NOSTD_CRATES combined is not the same as all workspace members" && exit 1)
+		(echo "Error: The combination of STD_CRATES and NOSTD_CRATES" \
+			"is not the same as all workspace members" && exit 1)
 	@rm /tmp/all_crates /tmp/combined_crates
 	@for dir in $(NON_OSDK_CRATES); do \
 		echo "Checking $$dir"; \

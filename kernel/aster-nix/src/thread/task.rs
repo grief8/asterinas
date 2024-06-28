@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use aster_frame::{
-    cpu::UserContext,
+use ostd::{
     task::{preempt, Task, TaskOptions},
-    user::{UserContextApi, UserEvent, UserMode, UserSpace},
+    user::{ReturnReason, UserContextApi, UserMode, UserSpace},
 };
 
 use super::Thread;
 use crate::{
-    cpu::LinuxAbi, prelude::*, process::signal::handle_pending_signal, syscall::handle_syscall,
+    cpu::LinuxAbi,
+    prelude::*,
+    process::{posix_thread::PosixThreadExt, signal::handle_pending_signal},
+    syscall::handle_syscall,
     thread::exception::handle_exception,
 };
 
@@ -34,32 +36,36 @@ pub fn create_new_user_task(user_space: Arc<UserSpace>, thread_ref: Weak<Thread>
             user_mode.context().syscall_ret()
         );
 
+        let posix_thread = current_thread.as_posix_thread().unwrap();
+        let has_kernel_event_fn = || posix_thread.has_pending();
         loop {
-            let user_event = user_mode.execute();
+            let return_reason = user_mode.execute(has_kernel_event_fn);
             let context = user_mode.context_mut();
             // handle user event:
-            handle_user_event(user_event, context);
-            // should be do this comparison before handle signal?
+            match return_reason {
+                ReturnReason::UserException => handle_exception(context),
+                ReturnReason::UserSyscall => handle_syscall(context),
+                ReturnReason::KernelEvent => {}
+            };
+
             if current_thread.status().is_exited() {
                 break;
             }
             handle_pending_signal(context, &current_thread).unwrap();
-            if current_thread.status().is_exited() {
-                debug!("exit due to signal");
-                break;
-            }
             // If current is suspended, wait for a signal to wake up self
             while current_thread.status().is_stopped() {
                 Thread::yield_now();
                 debug!("{} is suspended.", current_thread.tid());
                 handle_pending_signal(context, &current_thread).unwrap();
             }
+            if current_thread.status().is_exited() {
+                debug!("exit due to signal");
+                break;
+            }
             // a preemption point after handling user event.
             preempt(current_task);
         }
         debug!("exit user loop");
-        // FIXME: This is a work around: exit in kernel task entry may be not called. Why this will happen?
-        current_task.exit();
     }
 
     TaskOptions::new(user_task_entry)
@@ -67,11 +73,4 @@ pub fn create_new_user_task(user_space: Arc<UserSpace>, thread_ref: Weak<Thread>
         .user_space(Some(user_space))
         .build()
         .expect("spawn task failed")
-}
-
-fn handle_user_event(user_event: UserEvent, context: &mut UserContext) {
-    match user_event {
-        UserEvent::Syscall => handle_syscall(context),
-        UserEvent::Exception => handle_exception(context),
-    }
 }

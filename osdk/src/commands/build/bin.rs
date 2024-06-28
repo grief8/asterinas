@@ -153,12 +153,12 @@ fn install_setup_with_arch(
     let target_dir = std::fs::canonicalize(target_dir).unwrap();
 
     let mut cmd = Command::new("cargo");
-    cmd.env("RUSTFLAGS", "-Ccode-model=kernel -Crelocation-model=pie -Ctarget-feature=+crt-static -Zplt=yes -Zrelax-elf-relocations=yes -Zrelro-level=full");
+    cmd.env("RUSTFLAGS", "-Ccode-model=kernel -Crelocation-model=pie -Ctarget-feature=+crt-static -Zplt=yes -Zrelax-elf-relocations=yes -Crelro-level=full");
     cmd.arg("install").arg("linux-bzimage-setup");
     cmd.arg("--force");
     cmd.arg("--root").arg(install_dir.as_ref());
     cmd.arg("--git").arg(crate::util::ASTER_GIT_LINK);
-    cmd.arg("--rev").arg(crate::util::ASTER_GIT_REV);
+    cmd.arg("--tag").arg(crate::util::ASTER_GIT_TAG);
     cmd.arg("--target").arg(match arch {
         SetupInstallArch::X86_64 => "x86_64-unknown-none",
         SetupInstallArch::Other(path) => path.to_str().unwrap(),

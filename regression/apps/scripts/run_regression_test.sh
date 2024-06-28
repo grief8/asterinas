@@ -8,8 +8,9 @@ SCRIPT_DIR=/regression
 cd ${SCRIPT_DIR}
 
 ./shell_cmd.sh
-./ext2.sh
+./fs.sh
 ./process.sh
 ./network.sh
+./test_epoll_pwait.sh
 
 echo "All regression tests passed."

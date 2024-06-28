@@ -6,7 +6,7 @@ use crate::{
         file_handle::FileLike,
         file_table::{FdFlags, FileDesc},
         fs_resolver::{FsPath, AT_FDCWD},
-        utils::CreationFlags,
+        utils::{AccessMode, CreationFlags},
     },
     prelude::*,
     syscall::constants::MAX_FILENAME_LEN,
@@ -50,7 +50,14 @@ pub fn sys_open(path_addr: Vaddr, flags: u32, mode: u16) -> Result<SyscallReturn
     self::sys_openat(AT_FDCWD, path_addr, flags, mode)
 }
 
+pub fn sys_creat(path_addr: Vaddr, mode: u16) -> Result<SyscallReturn> {
+    let flags =
+        AccessMode::O_WRONLY as u32 | CreationFlags::O_CREAT.bits() | CreationFlags::O_TRUNC.bits();
+    self::sys_openat(AT_FDCWD, path_addr, flags, mode)
+}
+
 /// File for output busybox ash log.
+#[allow(dead_code)]
 struct BusyBoxTraceFile;
 
 impl FileLike for BusyBoxTraceFile {

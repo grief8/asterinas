@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use align_ext::AlignExt;
-use aster_frame::{
-    sync::WaitQueue,
-    vm::{VmFrame, VmReader, VmSegment, VmWriter},
-};
 use int_to_c_enum::TryFromInt;
+use ostd::{
+    mm::{Frame, Segment, VmReader, VmWriter},
+    sync::WaitQueue,
+};
 
 use super::{id::Sid, BlockDevice};
 use crate::prelude::*;
@@ -73,7 +73,7 @@ impl Bio {
     ///
     /// Returns a `BioWaiter` to the caller to wait for its completion.
     ///
-    /// # Panic
+    /// # Panics
     ///
     /// The caller must not submit a `Bio` more than once. Otherwise, a panic shall be triggered.
     pub fn submit(&self, block_device: &dyn BlockDevice) -> Result<BioWaiter, BioEnqueueError> {
@@ -107,7 +107,7 @@ impl Bio {
     ///
     /// Returns the result status of the `Bio`.
     ///
-    /// # Panic
+    /// # Panics
     ///
     /// The caller must not submit a `Bio` more than once. Otherwise, a panic shall be triggered.
     pub fn submit_sync(
@@ -136,11 +136,13 @@ pub enum BioEnqueueError {
     IsFull,
     /// Refuse to enqueue the bio
     Refused,
+    /// Too big bio
+    TooBig,
 }
 
-impl From<BioEnqueueError> for aster_frame::Error {
+impl From<BioEnqueueError> for ostd::Error {
     fn from(_error: BioEnqueueError) -> Self {
-        aster_frame::Error::NotEnoughResources
+        ostd::Error::NotEnoughResources
     }
 }
 
@@ -167,7 +169,7 @@ impl BioWaiter {
 
     /// Gets the `index`-th `Bio` request associated with `self`.
     ///
-    /// # Panic
+    /// # Panics
     ///
     /// If the `index` is out of bounds, this method will panic.
     pub fn req(&self, index: usize) -> Bio {
@@ -176,7 +178,7 @@ impl BioWaiter {
 
     /// Returns the status of the `index`-th `Bio` request associated with `self`.
     ///
-    /// # Panic
+    /// # Panics
     ///
     /// If the `index` is out of bounds, this method will panic.
     pub fn status(&self, index: usize) -> BioStatus {
@@ -217,6 +219,11 @@ impl BioWaiter {
         }
 
         ret
+    }
+
+    /// Clears all `Bio` requests in this waiter.
+    pub fn clear(&mut self) {
+        self.bios.clear();
     }
 }
 
@@ -359,7 +366,7 @@ pub enum BioStatus {
 #[derive(Debug, Clone)]
 pub struct BioSegment {
     /// The contiguous pages on which this segment resides.
-    pages: VmSegment,
+    pages: Segment,
     /// The starting offset (in bytes) within the first page.
     /// The offset should always be aligned to the sector size and
     /// must not exceed the size of a single page.
@@ -373,8 +380,8 @@ pub struct BioSegment {
 const SECTOR_SIZE: u16 = super::SECTOR_SIZE as u16;
 
 impl<'a> BioSegment {
-    /// Constructs a new `BioSegment` from `VmSegment`.
-    pub fn from_segment(segment: VmSegment, offset: usize, len: usize) -> Self {
+    /// Constructs a new `BioSegment` from `Segment`.
+    pub fn from_segment(segment: Segment, offset: usize, len: usize) -> Self {
         assert!(offset + len <= segment.nbytes());
 
         Self {
@@ -384,12 +391,12 @@ impl<'a> BioSegment {
         }
     }
 
-    /// Constructs a new `BioSegment` from `VmFrame`.
-    pub fn from_frame(frame: VmFrame, offset: usize, len: usize) -> Self {
+    /// Constructs a new `BioSegment` from `Frame`.
+    pub fn from_frame(frame: Frame, offset: usize, len: usize) -> Self {
         assert!(offset + len <= super::BLOCK_SIZE);
 
         Self {
-            pages: VmSegment::from(frame),
+            pages: Segment::from(frame),
             offset: AlignedUsize::<SECTOR_SIZE>::new(offset).unwrap(),
             len: AlignedUsize::<SECTOR_SIZE>::new(len).unwrap(),
         }
@@ -411,7 +418,7 @@ impl<'a> BioSegment {
     }
 
     /// Returns the contiguous pages on which this segment resides.
-    pub fn pages(&self) -> &VmSegment {
+    pub fn pages(&self) -> &Segment {
         &self.pages
     }
 

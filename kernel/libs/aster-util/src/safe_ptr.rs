@@ -2,13 +2,13 @@
 
 use core::{fmt::Debug, marker::PhantomData};
 
-use aster_frame::{
-    vm::{Daddr, DmaStream, HasDaddr, HasPaddr, Paddr, VmIo},
-    Result,
-};
 use aster_rights::{Dup, Exec, Full, Read, Signal, TRightSet, TRights, Write};
 use aster_rights_proc::require;
 use inherit_methods_macro::inherit_methods;
+use ostd::{
+    mm::{Daddr, DmaStream, HasDaddr, HasPaddr, Paddr, VmIo},
+    Result,
+};
 pub use pod::Pod;
 pub use typeflags_util::SetContain;
 
@@ -24,13 +24,13 @@ pub use typeflags_util::SetContain;
 /// More specifically, there are three major restrictions.
 ///
 /// 1. A safe pointer can only refer to a value of a POD type `T: Pod`,
-/// while raw pointers can do to a value of any type `T`.
+///    while raw pointers can do to a value of any type `T`.
 /// 2. A safe pointer can only refer to an address within a virtual memory object
-/// of type `M: VmIo` (e.g., VMAR and VMO), while raw pointers can do to
-/// an address within any virtual memory space.
+///    of type `M: VmIo` (e.g., VMAR and VMO), while raw pointers can do to
+///    an address within any virtual memory space.
 /// 3. A safe pointer only allows one to copy values to/from the target address,
-/// while a raw pointer allows one to borrow an immutable or mutable reference
-/// to the target address.
+///    while a raw pointer allows one to borrow an immutable or mutable reference
+///    to the target address.
 ///
 /// The expressiveness of safe pointers, although being less than that of
 /// raw pointers, is sufficient for our purpose of writing an OS kernel in safe
@@ -56,7 +56,7 @@ pub use typeflags_util::SetContain;
 ///
 /// The generic parameter `M` of `SafePtr<_, M, _>` must implement the `VmIo`
 /// trait. The most important `VmIo` types are `Vmar`, `Vmo`, `IoMem`, and
-/// `VmFrame`. The blanket implementations of `VmIo` also include pointer-like
+/// `Frame`. The blanket implementations of `VmIo` also include pointer-like
 /// types that refer to a `VmIo` type. Some examples are `&Vmo`, `Box<Vmar>`,
 /// and `Arc<IoMem>`.
 ///
@@ -381,8 +381,8 @@ impl<T, M: Debug, R> Debug for SafePtr<T, M, R> {
 #[macro_export]
 macro_rules! field_ptr {
     ($ptr:expr, $type:ty, $($field:tt)+) => {{
-        use aster_frame::offset_of;
-        use aster_frame::vm::VmIo;
+        use ostd::offset_of;
+        use ostd::mm::VmIo;
         use aster_rights::Dup;
         use aster_rights::TRightSet;
         use aster_rights::TRights;

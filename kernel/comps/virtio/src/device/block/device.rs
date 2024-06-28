@@ -7,15 +7,15 @@ use aster_block::{
     bio::{BioEnqueueError, BioStatus, BioType, SubmittedBio},
     request_queue::{BioRequest, BioRequestSingleQueue},
 };
-use aster_frame::{
-    io_mem::IoMem,
-    sync::SpinLock,
-    trap::TrapFrame,
-    vm::{DmaDirection, DmaStream, DmaStreamSlice, VmAllocOptions, VmIo},
-};
 use aster_util::safe_ptr::SafePtr;
 use id_alloc::IdAlloc;
 use log::info;
+use ostd::{
+    io_mem::IoMem,
+    mm::{DmaDirection, DmaStream, DmaStreamSlice, FrameAllocOptions, VmIo},
+    sync::SpinLock,
+    trap::TrapFrame,
+};
 use pod::Pod;
 
 use super::{BlockFeatures, VirtioBlockConfig};
@@ -43,7 +43,11 @@ impl BlockDevice {
 
         let block_device = Arc::new(Self {
             device,
-            queue: BioRequestSingleQueue::new(),
+            // Each bio request includes an additional 1 request and 1 response descriptor,
+            // therefore this upper bound is set to (QUEUE_SIZE - 2).
+            queue: BioRequestSingleQueue::with_max_nr_segments_per_bio(
+                (DeviceInner::QUEUE_SIZE - 2) as usize,
+            ),
         });
 
         aster_block::register_device(device_id, block_device);
@@ -74,6 +78,10 @@ impl aster_block::BlockDevice for BlockDevice {
     fn enqueue(&self, bio: SubmittedBio) -> Result<(), BioEnqueueError> {
         self.queue.enqueue(bio)
     }
+
+    fn max_nr_segments_per_bio(&self) -> usize {
+        self.queue.max_nr_segments_per_bio()
+    }
 }
 
 #[derive(Debug)]
@@ -100,12 +108,12 @@ impl DeviceInner {
         let queue = VirtQueue::new(0, Self::QUEUE_SIZE, transport.as_mut())
             .expect("create virtqueue failed");
         let block_requests = {
-            let vm_segment = VmAllocOptions::new(1).alloc_contiguous().unwrap();
+            let vm_segment = FrameAllocOptions::new(1).alloc_contiguous().unwrap();
             DmaStream::map(vm_segment, DmaDirection::Bidirectional, false).unwrap()
         };
         assert!(Self::QUEUE_SIZE as usize * REQ_SIZE <= block_requests.nbytes());
         let block_responses = {
-            let vm_segment = VmAllocOptions::new(1).alloc_contiguous().unwrap();
+            let vm_segment = FrameAllocOptions::new(1).alloc_contiguous().unwrap();
             DmaStream::map(vm_segment, DmaDirection::Bidirectional, false).unwrap()
         };
         assert!(Self::QUEUE_SIZE as usize * RESP_SIZE <= block_responses.nbytes());
@@ -216,7 +224,7 @@ impl DeviceInner {
         };
         const MAX_ID_LENGTH: usize = 20;
         let device_id_stream = {
-            let segment = VmAllocOptions::new(1)
+            let segment = FrameAllocOptions::new(1)
                 .uninit(true)
                 .alloc_contiguous()
                 .unwrap();

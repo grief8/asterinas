@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use aster_frame::sync::{Mutex, WaitQueue};
+use ostd::sync::{Mutex, WaitQueue};
 
 use super::{
     bio::{BioEnqueueError, BioType, SubmittedBio},
@@ -20,16 +20,28 @@ pub struct BioRequestSingleQueue {
     queue: Mutex<VecDeque<BioRequest>>,
     num_requests: AtomicUsize,
     wait_queue: WaitQueue,
+    max_nr_segments_per_bio: usize,
 }
 
 impl BioRequestSingleQueue {
     /// Creates an empty queue.
     pub fn new() -> Self {
+        Self::with_max_nr_segments_per_bio(usize::MAX)
+    }
+
+    /// Creates an empty queue with the upper bound for the number of segments in a bio.
+    pub fn with_max_nr_segments_per_bio(max_nr_segments_per_bio: usize) -> Self {
         Self {
             queue: Mutex::new(VecDeque::new()),
             num_requests: AtomicUsize::new(0),
             wait_queue: WaitQueue::new(),
+            max_nr_segments_per_bio,
         }
+    }
+
+    /// Returns the upper limit for the number of segments per bio.
+    pub fn max_nr_segments_per_bio(&self) -> usize {
+        self.max_nr_segments_per_bio
     }
 
     /// Returns the number of requests currently in this queue.
@@ -45,9 +57,15 @@ impl BioRequestSingleQueue {
     ///
     /// This method will wake up the waiter if a new `BioRequest` is enqueued.
     pub fn enqueue(&self, bio: SubmittedBio) -> Result<(), BioEnqueueError> {
+        if bio.segments().len() >= self.max_nr_segments_per_bio {
+            return Err(BioEnqueueError::TooBig);
+        }
+
         let mut queue = self.queue.lock();
         if let Some(request) = queue.front_mut() {
-            if request.can_merge(&bio) {
+            if request.can_merge(&bio)
+                && request.num_segments() + bio.segments().len() <= self.max_nr_segments_per_bio
+            {
                 request.merge_bio(bio);
                 return Ok(());
             }
@@ -123,6 +141,8 @@ pub struct BioRequest {
     type_: BioType,
     /// The range of target sectors on the device
     sid_range: Range<Sid>,
+    /// The number of segments
+    num_segments: usize,
     /// The submitted bios
     bios: VecDeque<SubmittedBio>,
 }
@@ -143,6 +163,11 @@ impl BioRequest {
         self.bios.iter()
     }
 
+    /// Returns the number of segments.
+    pub fn num_segments(&self) -> usize {
+        self.num_segments
+    }
+
     /// Returns `true` if can merge the `SubmittedBio`, `false` otherwise.
     pub fn can_merge(&self, rq_bio: &SubmittedBio) -> bool {
         if rq_bio.type_() != self.type_ {
@@ -157,11 +182,13 @@ impl BioRequest {
     ///
     /// The merged `SubmittedBio` can only be placed at the front or back.
     ///
-    /// # Panic
+    /// # Panics
     ///
     /// If the `SubmittedBio` can not be merged, this method will panic.
     pub fn merge_bio(&mut self, rq_bio: SubmittedBio) {
         assert!(self.can_merge(&rq_bio));
+
+        let rq_bio_nr_segments = rq_bio.segments().len();
 
         if rq_bio.sid_range().start == self.sid_range.end {
             self.sid_range.end = rq_bio.sid_range().end;
@@ -170,6 +197,8 @@ impl BioRequest {
             self.sid_range.start = rq_bio.sid_range().start;
             self.bios.push_front(rq_bio);
         }
+
+        self.num_segments += rq_bio_nr_segments;
     }
 }
 
@@ -178,6 +207,7 @@ impl From<SubmittedBio> for BioRequest {
         Self {
             type_: bio.type_(),
             sid_range: bio.sid_range().clone(),
+            num_segments: bio.segments().len(),
             bios: {
                 let mut bios = VecDeque::with_capacity(1);
                 bios.push_front(bio);

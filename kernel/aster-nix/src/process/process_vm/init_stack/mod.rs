@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(dead_code)]
+
 //! The init stack for the process.
 //! The init stack is used to store the `argv` and `envp` and auxiliary vectors.
 //! We can read `argv` and `envp` of a process from the init stack.
@@ -17,8 +19,8 @@ use core::{
 };
 
 use align_ext::AlignExt;
-use aster_frame::vm::{VmIo, MAX_USERSPACE_VADDR};
 use aster_rights::{Full, Rights};
+use ostd::mm::{VmIo, MAX_USERSPACE_VADDR};
 
 use self::aux_vec::{AuxKey, AuxVec};
 use crate::{

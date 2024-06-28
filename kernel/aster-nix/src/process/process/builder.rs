@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(dead_code)]
+
 use super::{Pid, Process};
 use crate::{
     fs::{file_table::FileTable, fs_resolver::FsResolver, utils::FileCreationMask},
@@ -179,12 +181,12 @@ impl<'a> ProcessBuilder<'a> {
                 threads,
                 executable_path.to_string(),
                 process_vm,
-                file_table,
                 fs,
+                file_table,
                 umask,
-                sig_dispositions,
                 resource_limits,
                 nice,
+                sig_dispositions,
             )
         };
 

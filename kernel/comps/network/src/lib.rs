@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #![no_std]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 #![feature(trait_alias)]
 #![feature(fn_traits)]
 #![feature(linked_list_cursors)]
 
 mod buffer;
-mod dma_pool;
+pub mod dma_pool;
 mod driver;
 
 extern crate alloc;
@@ -15,11 +15,11 @@ extern crate alloc;
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
 use core::{any::Any, fmt::Debug};
 
-use aster_frame::sync::SpinLock;
 use aster_util::safe_ptr::Pod;
-pub use buffer::{RxBuffer, TxBuffer};
+pub use buffer::{RxBuffer, TxBuffer, RX_BUFFER_POOL, TX_BUFFER_POOL};
 use component::{init_component, ComponentInitError};
 pub use dma_pool::DmaSegment;
+use ostd::sync::SpinLock;
 use smoltcp::phy;
 use spin::Once;
 

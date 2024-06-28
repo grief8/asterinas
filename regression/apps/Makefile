@@ -10,9 +10,14 @@ REGRESSION_BUILD_DIR ?= $(INITRAMFS)/regression
 
 # These test apps are sorted by name
 TEST_APPS := \
+	alarm \
+	capability \
 	clone3 \
+	cpu_affinity \
+	epoll \
 	eventfd2 \
 	execve \
+	fdatasync \
 	file_io \
 	fork \
 	fork_c \
@@ -20,15 +25,19 @@ TEST_APPS := \
 	hello_c \
 	hello_pie \
 	hello_world \
+	itimer \
 	mmap \
 	mongoose \
 	network \
 	pthread \
 	pty \
 	signal_c \
+	vsock \
 
 # The C head and source files of all the apps, excluding the downloaded mongoose files
-C_SOURCES := $(shell find . -type f \( -name "*.c" -or -name "*.h" \) ! -name "mongoose.c" ! -name "mongoose.h")
+C_SOURCES := \
+	$(shell find . -type f \( -name "*.c" -or -name "*.h" \) \
+		! -name "mongoose.c" ! -name "mongoose.h")
 
 .PHONY: all
 all: $(TEST_APPS) scripts

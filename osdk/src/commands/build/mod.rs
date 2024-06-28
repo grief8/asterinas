@@ -2,6 +2,7 @@
 
 mod bin;
 mod grub;
+mod qcow2;
 
 use std::{
     ffi::OsString,
@@ -159,7 +160,7 @@ pub fn do_build(
     );
 
     match boot.method {
-        BootMethod::GrubRescueIso => {
+        BootMethod::GrubRescueIso | BootMethod::GrubQcow2 => {
             info!("Building boot device image");
             let bootdev_image = grub::create_bootdev_image(
                 &osdk_output_directory,
@@ -168,15 +169,17 @@ pub fn do_build(
                 config,
                 action,
             );
-            bundle.consume_vm_image(bootdev_image);
+            if matches!(boot.method, BootMethod::GrubQcow2) {
+                let qcow2_image = qcow2::convert_iso_to_qcow2(bootdev_image);
+                bundle.consume_vm_image(qcow2_image);
+            } else {
+                bundle.consume_vm_image(bootdev_image);
+            }
             bundle.consume_aster_bin(aster_elf);
         }
         BootMethod::QemuDirect => {
             let qemu_elf = make_elf_for_qemu(&osdk_output_directory, &aster_elf, build.strip_elf);
             bundle.consume_aster_bin(qemu_elf);
-        }
-        BootMethod::GrubQcow2 => {
-            todo!()
         }
     }
 
@@ -202,10 +205,13 @@ fn build_kernel_elf(
         &env_rustflags,
         &rustc_linker_script_arg,
         "-C relocation-model=static",
-        "-Z relro-level=off",
+        "-C relro-level=off",
         // We do not really allow unwinding except for kernel testing. However, we need to specify
         // this to show backtraces when panicking.
         "-C panic=unwind",
+        // This is to let rustc know that "cfg(ktest)" is our well-known configuration.
+        // See the [Rust Blog](https://blog.rust-lang.org/2024/05/06/check-cfg.html) for details.
+        "--check-cfg cfg(ktest)",
     ]);
 
     if matches!(arch, Arch::X86_64) {
@@ -270,7 +276,7 @@ fn get_last_modified_time(path: impl AsRef<Path>) -> SystemTime {
 
         let metadata = entry.metadata().unwrap();
         if metadata.is_dir() {
-            last_modified = std::cmp::max(last_modified, get_last_modified_time(&entry.path()));
+            last_modified = std::cmp::max(last_modified, get_last_modified_time(entry.path()));
         } else {
             last_modified = std::cmp::max(last_modified, metadata.modified().unwrap());
         }

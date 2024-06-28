@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 //！This crate defines the component system related macros.
-//!
 
 #![feature(proc_macro_diagnostic)]
 #![allow(dead_code)]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
 mod init_comp;
 mod priority;

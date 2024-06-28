@@ -3,17 +3,14 @@
 use alloc::sync::Arc;
 use core::time::Duration;
 
-use aster_frame::{
-    arch::timer::{self, Jiffies},
-    cpu_local,
-    sync::SpinLock,
-    CpuLocal,
-};
 use aster_time::read_monotonic_time;
+use ostd::{arch::timer::Jiffies, cpu_local, sync::SpinLock, CpuLocal};
 use paste::paste;
 use spin::Once;
 
-use crate::time::{system_time::START_TIME_AS_DURATION, timer::TimerManager, Clock, SystemTime};
+use crate::time::{
+    self, system_time::START_TIME_AS_DURATION, timer::TimerManager, Clock, SystemTime,
+};
 
 /// The Clock that reads the jiffies, and turn the counter into `Duration`.
 pub struct JiffiesClock {
@@ -127,6 +124,11 @@ impl BootTimeClock {
     pub fn get() -> &'static Arc<BootTimeClock> {
         CLOCK_BOOTTIME_INSTANCE.get().unwrap()
     }
+
+    /// Get the cpu-local system-wide `TimerManager` singleton of this clock.
+    pub fn timer_manager() -> &'static Arc<TimerManager> {
+        CLOCK_BOOTTIME_MANAGER.get().unwrap()
+    }
 }
 
 impl Clock for JiffiesClock {
@@ -220,7 +222,7 @@ macro_rules! define_timer_managers {
                 let callback = move || {
                     clock_manager.process_expired_timers();
                 };
-                timer::register_callback(callback);
+                time::softirq::register_callback(callback);
             )*
         }
     }
@@ -235,7 +237,7 @@ define_system_clocks! {
     CLOCK_BOOTTIME          => BootTimeClock,
 }
 
-define_timer_managers![CLOCK_REALTIME, CLOCK_MONOTONIC,];
+define_timer_managers![CLOCK_REALTIME, CLOCK_MONOTONIC, CLOCK_BOOTTIME,];
 
 /// Init the system-wide clocks.
 fn init_system_wide_clocks() {
@@ -258,7 +260,7 @@ fn init_jiffies_clock_manager() {
     let callback = move || {
         jiffies_timer_manager.process_expired_timers();
     };
-    timer::register_callback(callback);
+    time::softirq::register_callback(callback);
 }
 
 fn update_coarse_clock() {
@@ -270,7 +272,7 @@ fn update_coarse_clock() {
 fn init_coarse_clock() {
     let real_time = RealTimeClock::get().read_time();
     RealTimeCoarseClock::current_ref().call_once(|| SpinLock::new(real_time));
-    timer::register_callback(update_coarse_clock);
+    time::softirq::register_callback(update_coarse_clock);
 }
 
 pub(super) fn init() {
@@ -289,6 +291,12 @@ pub fn init_for_ktest() {
     // If `spin::Once` has initialized, this closure will not be executed.
     CLOCK_REALTIME_MANAGER.call_once(|| {
         let clock = RealTimeClock { _private: () };
+        TimerManager::new(Arc::new(clock))
+    });
+    CLOCK_REALTIME_COARSE_INSTANCE.call_once(|| Arc::new(RealTimeCoarseClock { _private: () }));
+    RealTimeCoarseClock::current_ref().call_once(|| SpinLock::new(Duration::from_secs(0)));
+    JIFFIES_TIMER_MANAGER.call_once(|| {
+        let clock = JiffiesClock { _private: () };
         TimerManager::new(Arc::new(clock))
     });
 }

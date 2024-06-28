@@ -2,17 +2,17 @@
 
 //! The system time of Asterinas.
 #![no_std]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
 extern crate alloc;
 
 use alloc::sync::Arc;
 use core::{sync::atomic::Ordering::Relaxed, time::Duration};
 
-use aster_frame::sync::Mutex;
 use clocksource::ClockSource;
 pub use clocksource::Instant;
 use component::{init_component, ComponentInitError};
+use ostd::sync::Mutex;
 use rtc::{get_cmos, is_updating, CENTURY_REGISTER};
 use spin::Once;
 

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use aster_frame::cpu::CpuSet;
+#![allow(dead_code)]
+
+use ostd::cpu::CpuSet;
 use spin::Once;
 use work_item::WorkItem;
 use worker_pool::WorkerPool;
@@ -63,7 +65,7 @@ static WORKQUEUE_GLOBAL_HIGH_PRI: Once<Arc<WorkQueue>> = Once::new();
 /// Certainly, users can also create a dedicated WorkQueue and WorkerPool.
 ///
 /// ```rust
-/// use aster_frame::cpu::CpuSet;
+/// use ostd::cpu::CpuSet;
 /// use crate::thread::work_queue::{WorkQueue, WorkerPool, WorkItem};
 ///
 /// fn deferred_task(){
@@ -139,6 +141,9 @@ impl WorkQueue {
             .lock_irq_disabled()
             .pending_work_items
             .push(work_item);
+        if let Some(worker_pool) = self.worker_pool.upgrade() {
+            worker_pool.schedule()
+        }
         true
     }
 

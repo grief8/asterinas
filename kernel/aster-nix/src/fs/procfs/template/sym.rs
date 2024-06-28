@@ -17,15 +17,16 @@ pub struct ProcSym<S: SymOps> {
 }
 
 impl<S: SymOps> ProcSym<S> {
-    pub fn new(sym: S, fs: Arc<dyn FileSystem>, is_volatile: bool) -> Arc<Self> {
+    pub fn new(sym: S, fs: Weak<dyn FileSystem>, is_volatile: bool) -> Arc<Self> {
         let common = {
-            let procfs = fs.downcast_ref::<ProcFS>().unwrap();
+            let arc_fs = fs.upgrade().unwrap();
+            let procfs = arc_fs.downcast_ref::<ProcFS>().unwrap();
             let metadata = Metadata::new_symlink(
                 procfs.alloc_id(),
                 InodeMode::from_bits_truncate(0o777),
-                &fs.sb(),
+                super::BLOCK_SIZE,
             );
-            Common::new(metadata, Arc::downgrade(&fs), is_volatile)
+            Common::new(metadata, fs, is_volatile)
         };
         Arc::new(Self { inner: sym, common })
     }
@@ -46,6 +47,8 @@ impl<S: SymOps + 'static> Inode for ProcSym<S> {
     fn set_atime(&self, time: Duration);
     fn mtime(&self) -> Duration;
     fn set_mtime(&self, time: Duration);
+    fn ctime(&self) -> Duration;
+    fn set_ctime(&self, time: Duration);
     fn fs(&self) -> Arc<dyn FileSystem>;
 
     fn resize(&self, _new_size: usize) -> Result<()> {
@@ -82,10 +85,6 @@ impl<S: SymOps + 'static> Inode for ProcSym<S> {
 
     fn ioctl(&self, _cmd: IoctlCmd, _arg: usize) -> Result<i32> {
         Err(Error::new(Errno::EPERM))
-    }
-
-    fn sync(&self) -> Result<()> {
-        Ok(())
     }
 
     fn is_dentry_cacheable(&self) -> bool {

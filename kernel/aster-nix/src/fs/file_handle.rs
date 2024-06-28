@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(unused_variables)]
+
 //! Opend File Handle
 
 use crate::{
@@ -21,6 +23,27 @@ pub trait FileLike: Send + Sync + Any {
 
     fn write(&self, buf: &[u8]) -> Result<usize> {
         return_errno_with_message!(Errno::EINVAL, "write is not supported");
+    }
+
+    /// Read at the given file offset.
+    ///
+    /// The file must be seekable to support `read_at`.
+    /// Unlike [`read`], `read_at` will not change the file offset.
+    ///
+    /// [`read`]: FileLike::read
+    fn read_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {
+        return_errno_with_message!(Errno::ESPIPE, "read_at is not supported");
+    }
+
+    /// Write at the given file offset.
+    ///
+    /// The file must be seekable to support `write_at`.
+    /// Unlike [`write`], `write_at` will not change the file offset.
+    /// If the file is append-only, the `offset` will be ignored.
+    ///
+    /// [`write`]: FileLike::write
+    fn write_at(&self, offset: usize, buf: &[u8]) -> Result<usize> {
+        return_errno_with_message!(Errno::ESPIPE, "write_at is not supported");
     }
 
     fn ioctl(&self, cmd: IoctlCmd, arg: usize) -> Result<i32> {

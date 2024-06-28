@@ -8,15 +8,15 @@ use core::{
     sync::atomic::{fence, Ordering},
 };
 
-use aster_frame::{
-    io_mem::IoMem,
-    offset_of,
-    vm::{DmaCoherent, VmAllocOptions},
-};
 use aster_rights::{Dup, TRightSet, TRights, Write};
 use aster_util::{field_ptr, safe_ptr::SafePtr};
 use bitflags::bitflags;
 use log::debug;
+use ostd::{
+    io_mem::IoMem,
+    mm::{DmaCoherent, FrameAllocOptions},
+    offset_of,
+};
 use pod::Pod;
 
 use crate::{dma_buf::DmaBuf, transport::VirtioTransport};
@@ -74,7 +74,7 @@ impl VirtQueue {
 
         let (descriptor_ptr, avail_ring_ptr, used_ring_ptr) = if transport.is_legacy_version() {
             // FIXME: How about pci legacy?
-            // Currently, we use one VmFrame to place the descriptors and avaliable rings, one VmFrame to place used rings
+            // Currently, we use one Frame to place the descriptors and avaliable rings, one Frame to place used rings
             // because the virtio-mmio legacy required the address to be continuous. The max queue size is 128.
             if size > 128 {
                 return Err(QueueError::InvalidArgs);
@@ -82,7 +82,7 @@ impl VirtQueue {
             let desc_size = size_of::<Descriptor>() * size as usize;
 
             let (seg1, seg2) = {
-                let continue_segment = VmAllocOptions::new(2).alloc_contiguous().unwrap();
+                let continue_segment = FrameAllocOptions::new(2).alloc_contiguous().unwrap();
                 let seg1 = continue_segment.range(0..1);
                 let seg2 = continue_segment.range(1..2);
                 (seg1, seg2)
@@ -101,17 +101,17 @@ impl VirtQueue {
             }
             (
                 SafePtr::new(
-                    DmaCoherent::map(VmAllocOptions::new(1).alloc_contiguous().unwrap(), true)
+                    DmaCoherent::map(FrameAllocOptions::new(1).alloc_contiguous().unwrap(), true)
                         .unwrap(),
                     0,
                 ),
                 SafePtr::new(
-                    DmaCoherent::map(VmAllocOptions::new(1).alloc_contiguous().unwrap(), true)
+                    DmaCoherent::map(FrameAllocOptions::new(1).alloc_contiguous().unwrap(), true)
                         .unwrap(),
                     0,
                 ),
                 SafePtr::new(
-                    DmaCoherent::map(VmAllocOptions::new(1).alloc_contiguous().unwrap(), true)
+                    DmaCoherent::map(FrameAllocOptions::new(1).alloc_contiguous().unwrap(), true)
                         .unwrap(),
                     0,
                 ),

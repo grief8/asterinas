@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(unused_variables)]
+
 use core::time::Duration;
 
 use aster_rights::Full;
@@ -57,6 +59,14 @@ impl Inode for Ext2Inode {
 
     fn set_mtime(&self, time: Duration) {
         self.set_mtime(time)
+    }
+
+    fn ctime(&self) -> Duration {
+        self.ctime()
+    }
+
+    fn set_ctime(&self, time: Duration) {
+        self.set_ctime(time)
     }
 
     fn ino(&self) -> u64 {
@@ -166,8 +176,12 @@ impl Inode for Ext2Inode {
         Err(Error::new(Errno::EINVAL))
     }
 
-    fn sync(&self) -> Result<()> {
+    fn sync_all(&self) -> Result<()> {
         self.sync_all()
+    }
+
+    fn sync_data(&self) -> Result<()> {
+        self.sync_data()
     }
 
     fn fs(&self) -> Arc<dyn FileSystem> {

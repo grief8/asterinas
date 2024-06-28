@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(dead_code)]
+
 use super::SyscallReturn;
 use crate::{
     fs::{
@@ -88,7 +90,7 @@ pub struct Stat {
     /// ID of device containing file
     st_dev: u64,
     /// Inode number
-    st_ino: usize,
+    st_ino: u64,
     /// Number of hard links
     st_nlink: usize,
     /// File type and mode

@@ -22,6 +22,9 @@ Use the kernel template.
 If this option is not set,
 the library template will be used by default.
 
+`--library`:
+Use the library template. This is the default option.
+
 ## Examples
 
 - Create a new kernel named `myos`: 
@@ -30,8 +33,8 @@ the library template will be used by default.
 cargo osdk new --kernel myos
 ```
 
-- Create a new library named `mymodule`:
+- Create a new library named `mylib`:
 
 ```bash
-cargo osdk new mymodule
+cargo osdk new mylib
 ```

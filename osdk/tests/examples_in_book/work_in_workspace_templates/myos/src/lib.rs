@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #![no_std]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
-use aster_frame::prelude::*;
+use ostd::prelude::*;
 
-#[aster_main]
+#[ostd::main]
 fn kernel_main() {
-    let avail_mem_as_mb = mymodule::available_memory() / 1_000_000;
+    let avail_mem_as_mb = mylib::available_memory() / 1_000_000;
     println!("The available memory is {} MB", avail_mem_as_mb);
 }

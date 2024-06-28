@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(unused_variables)]
+
 use self::options::SocketOption;
 pub use self::util::{
     options::LingerOption, send_recv_flags::SendRecvFlags, shutdown_cmd::SockShutdownCmd,
-    socket_addr::SocketAddr,
+    socket_addr::SocketAddr, MessageHeader,
 };
-use crate::{fs::file_handle::FileLike, prelude::*};
+use crate::{fs::file_handle::FileLike, prelude::*, util::IoVec};
 
 pub mod ip;
 pub mod options;
 pub mod unix;
 mod util;
+pub mod vsock;
 
 /// Operations defined on a socket.
 pub trait Socket: FileLike + Send + Sync {
@@ -26,7 +29,7 @@ pub trait Socket: FileLike + Send + Sync {
 
     /// Listen for connections on a socket
     fn listen(&self, backlog: usize) -> Result<()> {
-        return_errno_with_message!(Errno::EOPNOTSUPP, "connect() is not supported");
+        return_errno_with_message!(Errno::EOPNOTSUPP, "listen() is not supported");
     }
 
     /// Accept a connection on a socket
@@ -60,18 +63,18 @@ pub trait Socket: FileLike + Send + Sync {
         return_errno_with_message!(Errno::EOPNOTSUPP, "setsockopt() is not supported");
     }
 
-    /// Receive a message from a socket
-    fn recvfrom(&self, buf: &mut [u8], flags: SendRecvFlags) -> Result<(usize, SocketAddr)> {
-        return_errno_with_message!(Errno::EOPNOTSUPP, "recvfrom() is not supported");
-    }
-
-    /// Send a message on a socket
-    fn sendto(
+    /// Sends a message on a socket.
+    fn sendmsg(
         &self,
-        buf: &[u8],
-        remote: Option<SocketAddr>,
+        io_vecs: &[IoVec],
+        message_header: MessageHeader,
         flags: SendRecvFlags,
-    ) -> Result<usize> {
-        return_errno_with_message!(Errno::EOPNOTSUPP, "recvfrom() is not supported");
-    }
+    ) -> Result<usize>;
+
+    /// Receives a message from a socket.
+    ///
+    /// If successful, the `io_vecs` buffer will be filled with the received content.
+    /// This method returns the length of the received message,
+    /// and the message header.
+    fn recvmsg(&self, io_vecs: &[IoVec], flags: SendRecvFlags) -> Result<(usize, MessageHeader)>;
 }

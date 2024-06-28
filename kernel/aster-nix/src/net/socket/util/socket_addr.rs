@@ -3,18 +3,19 @@
 use crate::{
     net::{
         iface::{IpAddress, IpEndpoint, Ipv4Address},
-        socket::unix::UnixSocketAddr,
+        socket::{unix::UnixSocketAddr, vsock::addr::VsockSocketAddr},
     },
     prelude::*,
 };
 
 type PortNum = u16;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum SocketAddr {
     Unix(UnixSocketAddr),
     IPv4(Ipv4Address, PortNum),
     IPv6,
+    Vsock(VsockSocketAddr),
 }
 
 impl TryFrom<SocketAddr> for IpEndpoint {

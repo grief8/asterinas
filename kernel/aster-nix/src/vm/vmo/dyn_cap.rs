@@ -2,12 +2,12 @@
 
 use core::ops::Range;
 
-use aster_frame::vm::{VmFrame, VmIo};
 use aster_rights::{Rights, TRights};
+use ostd::mm::{Frame, VmIo};
 
 use super::{
     options::{VmoCowChild, VmoSliceChild},
-    Vmo, VmoChildOptions, VmoRightsOp,
+    CommitFlags, Vmo, VmoChildOptions, VmoRightsOp,
 };
 use crate::prelude::*;
 
@@ -68,7 +68,7 @@ impl Vmo<Rights> {
     }
 
     /// commit a page at specific offset
-    pub fn commit_page(&self, offset: usize) -> Result<VmFrame> {
+    pub fn commit_page(&self, offset: usize) -> Result<Frame> {
         self.check_rights(Rights::WRITE)?;
         self.0.commit_page(offset, false)
     }
@@ -84,7 +84,8 @@ impl Vmo<Rights> {
     /// The method requires the Write right.
     pub fn commit(&self, range: Range<usize>) -> Result<()> {
         self.check_rights(Rights::WRITE)?;
-        self.0.commit_and_operate(&range, |_| {}, false)?;
+        self.0
+            .commit_and_operate(&range, |_| {}, CommitFlags::empty())?;
         Ok(())
     }
 
@@ -150,13 +151,13 @@ impl Vmo<Rights> {
 }
 
 impl VmIo for Vmo<Rights> {
-    fn read_bytes(&self, offset: usize, buf: &mut [u8]) -> aster_frame::Result<()> {
+    fn read_bytes(&self, offset: usize, buf: &mut [u8]) -> ostd::Result<()> {
         self.check_rights(Rights::READ)?;
         self.0.read_bytes(offset, buf)?;
         Ok(())
     }
 
-    fn write_bytes(&self, offset: usize, buf: &[u8]) -> aster_frame::Result<()> {
+    fn write_bytes(&self, offset: usize, buf: &[u8]) -> ostd::Result<()> {
         self.check_rights(Rights::WRITE)?;
         self.0.write_bytes(offset, buf)?;
         Ok(())

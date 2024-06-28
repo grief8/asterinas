@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 //! Virtual Memory Objects (VMOs).
 
 use core::ops::Range;
 
 use align_ext::AlignExt;
-use aster_frame::{
-    collections::xarray::{CursorMut, XArray, XMark},
-    vm::{VmAllocOptions, VmFrame, VmReader, VmWriter},
-};
 use aster_rights::Rights;
+use ostd::{
+    collections::xarray::{CursorMut, XArray, XMark},
+    mm::{Frame, FrameAllocOptions, VmReader, VmWriter},
+};
 
 use crate::prelude::*;
 
@@ -28,38 +31,38 @@ use self::options::ChildType;
 ///
 /// # Features
 ///
-/// * **I/O interface.** A VMO provides read and write methods to access the
-/// memory pages that it contain.
-/// * **On-demand paging.** The memory pages of a VMO (except for _contiguous_
-/// VMOs) are allocated lazily when the page is first accessed.
-/// * **Tree structure.** Given a VMO, one can create a child VMO from it.
-/// The child VMO can only access a subset of the parent's memory,
-/// which is a good thing for the perspective of access control.
-/// * **Copy-on-write (COW).** A child VMO may be created with COW semantics,
-/// which prevents any writes on the child from affecting the parent
-/// by duplicating memory pages only upon the first writes.
-/// * **Access control.** As capabilities, VMOs restrict the
-/// accessible range of memory and the allowed I/O operations.
-/// * **Device driver support.** If specified upon creation, VMOs will be
-/// backed by physically contiguous memory pages starting at a target address.
-/// * **File system support.** By default, a VMO's memory pages are initially
-/// all zeros. But if a VMO is attached to a pager (`Pager`) upon creation,
-/// then its memory pages will be populated by the pager.
-/// With this pager mechanism, file systems can easily implement page caches
-/// with VMOs by attaching the VMOs to pagers backed by inodes.
+///  * **I/O interface.** A VMO provides read and write methods to access the
+///    memory pages that it contain.
+///  * **On-demand paging.** The memory pages of a VMO (except for _contiguous_
+///    VMOs) are allocated lazily when the page is first accessed.
+///  * **Tree structure.** Given a VMO, one can create a child VMO from it.
+///    The child VMO can only access a subset of the parent's memory,
+///    which is a good thing for the perspective of access control.
+///  * **Copy-on-write (COW).** A child VMO may be created with COW semantics,
+///    which prevents any writes on the child from affecting the parent
+///    by duplicating memory pages only upon the first writes.
+///  * **Access control.** As capabilities, VMOs restrict the
+///    accessible range of memory and the allowed I/O operations.
+///  * **Device driver support.** If specified upon creation, VMOs will be
+///    backed by physically contiguous memory pages starting at a target address.
+///  * **File system support.** By default, a VMO's memory pages are initially
+///    all zeros. But if a VMO is attached to a pager (`Pager`) upon creation,
+///    then its memory pages will be populated by the pager.
+///    With this pager mechanism, file systems can easily implement page caches
+///    with VMOs by attaching the VMOs to pagers backed by inodes.
 ///
 /// # Capabilities
 ///
 /// As a capability, each VMO is associated with a set of access rights,
 /// whose semantics are explained below.
 ///
-/// * The Dup right allows duplicating a VMO and creating children out of
-/// a VMO.
-/// * The Read, Write, Exec rights allow creating memory mappings with
-/// readable, writable, and executable access permissions, respectively.
-/// * The Read and Write rights allow the VMO to be read from and written to
-/// directly.
-/// * The Write right allows resizing a resizable VMO.
+///  * The Dup right allows duplicating a VMO and creating children out of
+///    a VMO.
+///  * The Read, Write, Exec rights allow creating memory mappings with
+///    readable, writable, and executable access permissions, respectively.
+///  * The Read and Write rights allow the VMO to be read from and written to
+///    directly.
+///  * The Write right allows resizing a resizable VMO.
 ///
 /// VMOs are implemented with two flavors of capabilities:
 /// the dynamic one (`Vmo<Rights>`) and the static one (`Vmo<R: TRights>).
@@ -73,7 +76,7 @@ use self::options::ChildType;
 /// # Implementation
 ///
 /// `Vmo` provides high-level APIs for address space management by wrapping
-/// around its low-level counterpart `aster_frame::vm::VmFrames`.
+/// around its low-level counterpart `ostd::vm::VmFrames`.
 /// Compared with `VmFrames`,
 /// `Vmo` is easier to use (by offering more powerful APIs) and
 /// harder to misuse (thanks to its nature of being capability).
@@ -139,8 +142,8 @@ pub(super) enum VmoMark {
     /// The VMO whose `pages` is marked as `CowVmo` may require a Copy-On-Write (COW) operation
     /// when performing a write action.
     CowVmo,
-    /// Marks used for the `VmFrame` stored within the pages marked as `CowVmo`,
-    /// `VmFrame`s marked as `ExclusivePage` are newly created through the COW mechanism
+    /// Marks used for the `Frame` stored within the pages marked as `CowVmo`,
+    /// `Frame`s marked as `ExclusivePage` are newly created through the COW mechanism
     /// and do not require further COW operations.
     ExclusivePage,
 }
@@ -154,19 +157,19 @@ impl From<VmoMark> for XMark {
     }
 }
 
-/// `Pages` is the struct that manages the `VmFrame`s stored in `Vmo_`.
+/// `Pages` is the struct that manages the `Frame`s stored in `Vmo_`.
 pub(super) enum Pages {
     /// `Pages` that cannot be resized. This kind of `Pages` will have a constant size.
-    Nonresizable(Arc<Mutex<XArray<VmFrame, VmoMark>>>, usize),
+    Nonresizable(Arc<Mutex<XArray<Frame, VmoMark>>>, usize),
     /// `Pages` that can be resized and have a variable size, and such `Pages` cannot
     /// be shared between different VMOs.
-    Resizable(Mutex<(XArray<VmFrame, VmoMark>, usize)>),
+    Resizable(Mutex<(XArray<Frame, VmoMark>, usize)>),
 }
 
 impl Pages {
     fn with<R, F>(&self, func: F) -> R
     where
-        F: FnOnce(&mut XArray<VmFrame, VmoMark>, usize) -> R,
+        F: FnOnce(&mut XArray<Frame, VmoMark>, usize) -> R,
     {
         match self {
             Self::Nonresizable(pages, size) => func(&mut pages.lock(), *size),
@@ -182,7 +185,7 @@ impl Pages {
 /// `Vmo_` is the structure that actually manages the content of VMO.
 /// Broadly speaking, there are two types of VMO:
 /// 1. File-backed VMO: the VMO backed by a file and resides in the `PageCache`,
-/// which includes a pager to provide it with actual pages.
+///    which includes a pager to provide it with actual pages.
 /// 2. Anonymous VMO: the VMO without a file backup, which does not have a pager.
 pub(super) struct Vmo_ {
     pager: Option<Arc<dyn Pager>>,
@@ -194,14 +197,35 @@ pub(super) struct Vmo_ {
     pages: Pages,
 }
 
-fn clone_page(page: &VmFrame) -> Result<VmFrame> {
-    let new_page = VmAllocOptions::new(1).alloc_single()?;
-    new_page.copy_from_frame(page);
+fn clone_page(page: &Frame) -> Result<Frame> {
+    let new_page = FrameAllocOptions::new(1).alloc_single()?;
+    new_page.copy_from(page);
     Ok(new_page)
 }
 
+bitflags! {
+    /// Commit Flags.
+    pub struct CommitFlags: u8 {
+        /// Set this flag if the page will be written soon.
+        const WILL_WRITE  = 1;
+        /// Set this flag if the page will be completely overwritten.
+        /// This flag contains the WILL_WRITE flag.
+        const WILL_OVERWRITE = 3;
+    }
+}
+
+impl CommitFlags {
+    pub fn will_write(&self) -> bool {
+        self.contains(Self::WILL_WRITE)
+    }
+
+    pub fn will_overwrite(&self) -> bool {
+        self.contains(Self::WILL_OVERWRITE)
+    }
+}
+
 impl Vmo_ {
-    /// Prepare a new `VmFrame` for the target index in pages, returning the new page as well as
+    /// Prepare a new `Frame` for the target index in pages, returning the new page as well as
     /// whether this page needs to be marked as exclusive.
     ///
     /// Based on the type of VMO and the impending operation on the prepared page, there are 3 conditions:
@@ -215,21 +239,21 @@ impl Vmo_ {
         &self,
         page_idx: usize,
         is_cow_vmo: bool,
-        will_write: bool,
-    ) -> Result<(VmFrame, bool)> {
+        commit_flags: CommitFlags,
+    ) -> Result<(Frame, bool)> {
         let (page, should_mark_exclusive) = match &self.pager {
             None => {
                 // Condition 1. The new anonymous page only need to be marked as `ExclusivePage`
                 // when current VMO is a cow VMO, otherwise this mark is meaningless.
-                (VmAllocOptions::new(1).alloc_single()?, is_cow_vmo)
+                (FrameAllocOptions::new(1).alloc_single()?, is_cow_vmo)
             }
             Some(pager) => {
                 let page = pager.commit_page(page_idx)?;
                 // The prerequisite for triggering the COW mechanism here is that the current
                 // VMO requires COW and the prepared page is about to undergo a write operation.
-                // At this point, the `VmFrame` obtained from the pager needs to be cloned to
-                // avoid subsequent modifications affecting the content of the `VmFrame` in the pager.
-                let trigger_cow = is_cow_vmo && will_write;
+                // At this point, the `Frame` obtained from the pager needs to be cloned to
+                // avoid subsequent modifications affecting the content of the `Frame` in the pager.
+                let trigger_cow = is_cow_vmo && commit_flags.will_write();
                 if trigger_cow {
                     // Condition 3.
                     (clone_page(&page)?, true)
@@ -242,27 +266,52 @@ impl Vmo_ {
         Ok((page, should_mark_exclusive))
     }
 
+    /// Prepare a new `Frame` for the target index in pages, returning the new page.
+    /// This function is only used when the new `Frame` will be completely overwritten
+    /// and we do not care about the content on the page.
+    fn prepare_overwrite(&self, page_idx: usize, is_cow_vmo: bool) -> Result<Frame> {
+        let page = if let Some(pager) = &self.pager
+            && !is_cow_vmo
+        {
+            pager.commit_overwrite(page_idx)?
+        } else {
+            FrameAllocOptions::new(1).alloc_single()?
+        };
+        Ok(page)
+    }
+
     fn commit_with_cursor(
         &self,
-        cursor: &mut CursorMut<'_, VmFrame, VmoMark>,
+        cursor: &mut CursorMut<'_, Frame, VmoMark>,
         is_cow_vmo: bool,
-        will_write: bool,
-    ) -> Result<VmFrame> {
+        commit_flags: CommitFlags,
+    ) -> Result<Frame> {
         let (new_page, is_exclusive) = {
             let is_exclusive = cursor.is_marked(VmoMark::ExclusivePage);
             if let Some(committed_page) = cursor.load() {
                 // The necessary and sufficient condition for triggering the COW mechanism is that
                 // the current VMO requires copy-on-write, there is an impending write operation to the page,
                 // and the page is not exclusive.
-                let trigger_cow = is_cow_vmo && will_write && !is_exclusive;
+                let trigger_cow = is_cow_vmo && commit_flags.will_write() && !is_exclusive;
                 if !trigger_cow {
                     // Fast path: return the page directly.
                     return Ok(committed_page.clone());
                 }
 
-                (clone_page(&committed_page)?, true)
+                if commit_flags.will_overwrite() {
+                    (FrameAllocOptions::new(1).alloc_single()?, true)
+                } else {
+                    (clone_page(&committed_page)?, true)
+                }
+            } else if commit_flags.will_overwrite() {
+                // In this case, the page will be completely overwritten. The page only needs to
+                // be marked as `ExclusivePage` when the current VMO is a cow VMO.
+                (
+                    self.prepare_overwrite(cursor.index() as usize, is_cow_vmo)?,
+                    is_cow_vmo,
+                )
             } else {
-                self.prepare_page(cursor.index() as usize, is_cow_vmo, will_write)?
+                self.prepare_page(cursor.index() as usize, is_cow_vmo, commit_flags)?
             }
         };
 
@@ -276,12 +325,17 @@ impl Vmo_ {
     /// Commit the page corresponding to the target offset in the VMO and return that page.
     /// If the current offset has already been committed, the page will be returned directly.
     /// During the commit process, the Copy-On-Write (COW) mechanism may be triggered depending on the circumstances.
-    pub fn commit_page(&self, offset: usize, will_write: bool) -> Result<VmFrame> {
+    pub fn commit_page(&self, offset: usize, will_write: bool) -> Result<Frame> {
         let page_idx = offset / PAGE_SIZE + self.page_idx_offset;
         self.pages.with(|pages, size| {
             let is_cow_vmo = pages.is_marked(VmoMark::CowVmo);
             let mut cursor = pages.cursor_mut(page_idx as u64);
-            self.commit_with_cursor(&mut cursor, is_cow_vmo, will_write)
+            let commit_flags = if will_write {
+                CommitFlags::WILL_WRITE
+            } else {
+                CommitFlags::empty()
+            };
+            self.commit_with_cursor(&mut cursor, is_cow_vmo, commit_flags)
         })
     }
 
@@ -307,10 +361,10 @@ impl Vmo_ {
         &self,
         range: &Range<usize>,
         mut operate: F,
-        will_write: bool,
+        commit_flags: CommitFlags,
     ) -> Result<()>
     where
-        F: FnMut(VmFrame),
+        F: FnMut(Frame),
     {
         self.pages.with(|pages, size| {
             if range.end > size {
@@ -325,7 +379,7 @@ impl Vmo_ {
             let mut cursor = pages.cursor_mut(page_idx_range.start as u64);
             for page_idx in page_idx_range {
                 let committed_page =
-                    self.commit_with_cursor(&mut cursor, is_cow_vmo, will_write)?;
+                    self.commit_with_cursor(&mut cursor, is_cow_vmo, commit_flags)?;
                 operate(committed_page);
                 cursor.next();
             }
@@ -348,12 +402,12 @@ impl Vmo_ {
         let mut read_offset = offset % PAGE_SIZE;
         let mut buf_writer: VmWriter = buf.into();
 
-        let read = move |page: VmFrame| {
+        let read = move |page: Frame| {
             page.reader().skip(read_offset).read(&mut buf_writer);
             read_offset = 0;
         };
 
-        self.commit_and_operate(&read_range, read, false)
+        self.commit_and_operate(&read_range, read, CommitFlags::empty())
     }
 
     /// Write the specified amount of buffer content starting from the target offset in the VMO.
@@ -363,12 +417,30 @@ impl Vmo_ {
         let mut write_offset = offset % PAGE_SIZE;
         let mut buf_reader: VmReader = buf.into();
 
-        let write = move |page: VmFrame| {
+        let mut write = move |page: Frame| {
             page.writer().skip(write_offset).write(&mut buf_reader);
             write_offset = 0;
         };
 
-        self.commit_and_operate(&write_range, write, true)?;
+        if write_range.len() < PAGE_SIZE {
+            self.commit_and_operate(&write_range, write, CommitFlags::WILL_WRITE)?;
+        } else {
+            let temp = write_range.start + PAGE_SIZE - 1;
+            let up_align_start = temp - temp % PAGE_SIZE;
+            let down_align_end = write_range.end - write_range.end % PAGE_SIZE;
+            if write_range.start != up_align_start {
+                let head_range = write_range.start..up_align_start;
+                self.commit_and_operate(&head_range, &mut write, CommitFlags::WILL_WRITE)?;
+            }
+            if up_align_start != down_align_end {
+                let mid_range = up_align_start..down_align_end;
+                self.commit_and_operate(&mid_range, &mut write, CommitFlags::WILL_OVERWRITE)?;
+            }
+            if down_align_end != write_range.end {
+                let tail_range = down_align_end..write_range.end;
+                self.commit_and_operate(&tail_range, &mut write, CommitFlags::WILL_WRITE)?;
+            }
+        }
 
         let is_cow_vmo = self.is_cow_vmo();
         if let Some(pager) = &self.pager
@@ -518,7 +590,7 @@ impl Vmo_ {
 
     fn decommit_pages(
         &self,
-        pages: &mut XArray<VmFrame, VmoMark>,
+        pages: &mut XArray<Frame, VmoMark>,
         range: Range<usize>,
     ) -> Result<()> {
         let raw_page_idx_range = get_page_idx_range(&range);
@@ -575,7 +647,7 @@ impl<R> Vmo<R> {
         self.0.is_page_committed(page_idx)
     }
 
-    pub fn get_committed_frame(&self, page_idx: usize, write_page: bool) -> Result<VmFrame> {
+    pub fn get_committed_frame(&self, page_idx: usize, write_page: bool) -> Result<Frame> {
         self.0.commit_page(page_idx * PAGE_SIZE, write_page)
     }
 

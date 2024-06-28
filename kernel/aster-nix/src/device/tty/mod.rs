@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use aster_frame::early_print;
+#![allow(dead_code)]
+
+use ostd::early_print;
 use spin::Once;
 
 use self::{driver::TtyDriver, line_discipline::LineDiscipline};

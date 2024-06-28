@@ -21,7 +21,10 @@ mod test {
         bio::{BioEnqueueError, BioStatus, BioType, SubmittedBio},
         BlockDevice,
     };
-    use aster_frame::vm::{VmAllocOptions, VmIo, VmSegment};
+    use ostd::{
+        mm::{FrameAllocOptions, Segment, VmIo},
+        prelude::*,
+    };
     use rand::{rngs::SmallRng, RngCore, SeedableRng};
 
     use crate::{
@@ -37,10 +40,10 @@ mod test {
 
     /// Followings are implementations of memory simulated block device
     pub const SECTOR_SIZE: usize = 512;
-    struct ExfatMemoryBioQueue(VmSegment);
+    struct ExfatMemoryBioQueue(Segment);
 
     impl ExfatMemoryBioQueue {
-        pub fn new(segment: VmSegment) -> Self {
+        pub fn new(segment: Segment) -> Self {
             ExfatMemoryBioQueue(segment)
         }
 
@@ -54,7 +57,7 @@ mod test {
     }
 
     impl ExfatMemoryDisk {
-        pub fn new(segment: VmSegment) -> Self {
+        pub fn new(segment: Segment) -> Self {
             ExfatMemoryDisk {
                 queue: ExfatMemoryBioQueue::new(segment),
             }
@@ -95,14 +98,18 @@ mod test {
             bio.complete(BioStatus::Complete);
             Ok(())
         }
+
+        fn max_nr_segments_per_bio(&self) -> usize {
+            usize::MAX
+        }
     }
     /// Exfat disk image
     static EXFAT_IMAGE: &[u8] = include_bytes!("../../../../../regression/build/exfat.img");
 
     /// Read exfat disk image
-    fn new_vm_segment_from_image() -> VmSegment {
+    fn new_vm_segment_from_image() -> Segment {
         let vm_segment = {
-            VmAllocOptions::new(EXFAT_IMAGE.len() / PAGE_SIZE)
+            FrameAllocOptions::new(EXFAT_IMAGE.len() / PAGE_SIZE)
                 .is_contiguous(true)
                 .uninit(true)
                 .alloc_contiguous()

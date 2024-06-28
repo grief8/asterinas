@@ -2,7 +2,7 @@
 
 use std::{fs, path::PathBuf};
 
-use crate::util::cargo_osdk;
+use crate::util::{cargo_osdk, depends_on_local_ostd};
 
 #[test]
 fn create_and_run_kernel() {
@@ -18,6 +18,10 @@ fn create_and_run_kernel() {
     let mut command = cargo_osdk(&["new", "--kernel", os_name]);
     command.current_dir(work_dir);
     command.ok().unwrap();
+
+    // Makes the kernel depend on local OSTD
+    let manifest_path = os_dir.join("Cargo.toml");
+    depends_on_local_ostd(&manifest_path);
 
     let mut command = cargo_osdk(&["build"]);
     command.current_dir(&os_dir);
@@ -36,7 +40,7 @@ fn create_and_run_kernel() {
 #[test]
 fn create_and_test_library() {
     let work_dir = "/tmp";
-    let module_name = "mymodule";
+    let module_name = "mylib";
 
     let module_dir = PathBuf::from(work_dir).join(module_name);
 
@@ -47,6 +51,9 @@ fn create_and_test_library() {
     let mut command = cargo_osdk(&["new", module_name]);
     command.current_dir(work_dir);
     command.ok().unwrap();
+
+    let manifest_path = module_dir.join("Cargo.toml");
+    depends_on_local_ostd(manifest_path);
 
     let mut command = cargo_osdk(&["test"]);
     command.current_dir(&module_dir);

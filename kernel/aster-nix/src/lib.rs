@@ -2,14 +2,11 @@
 
 //! The std library of Asterinas.
 #![no_std]
-#![forbid(unsafe_code)]
-#![allow(dead_code)]
+#![deny(unsafe_code)]
 #![allow(incomplete_features)]
-#![allow(unused_variables)]
 #![feature(btree_cursors)]
 #![feature(btree_extract_if)]
 #![feature(const_option)]
-#![feature(exclusive_range_pattern)]
 #![feature(extend_one)]
 #![feature(fn_traits)]
 #![feature(format_args_nl)]
@@ -23,9 +20,10 @@
 #![feature(specialization)]
 #![feature(step_trait)]
 #![feature(trait_alias)]
+#![feature(trait_upcasting)]
 #![register_tool(component_access_control)]
 
-use aster_frame::{
+use ostd::{
     arch::qemu::{exit_qemu, QemuExitCode},
     boot,
 };
@@ -43,9 +41,6 @@ extern crate alloc;
 extern crate lru;
 #[macro_use]
 extern crate controlled;
-#[cfg(ktest)]
-#[macro_use]
-extern crate ktest;
 #[macro_use]
 extern crate getset;
 
@@ -61,7 +56,9 @@ pub mod net;
 pub mod prelude;
 mod process;
 mod sched;
+pub mod softirq_id;
 pub mod syscall;
+mod taskless;
 pub mod thread;
 pub mod time;
 mod util;
@@ -77,6 +74,8 @@ pub fn init() {
     fs::rootfs::init(boot::initramfs()).unwrap();
     device::init().unwrap();
     vdso::init();
+    taskless::init();
+    process::init();
 }
 
 fn init_thread() {
@@ -89,7 +88,7 @@ fn init_thread() {
     thread::work_queue::init();
     // FIXME: Remove this if we move the step of mounting
     // the filesystems to be done within the init process.
-    aster_frame::trap::enable_local();
+    ostd::trap::enable_local();
     net::lazy_init();
     fs::lazy_init();
     // driver::pci::virtio::block::block_device_test();

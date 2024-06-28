@@ -12,13 +12,7 @@ use crate::{
 pub fn sys_set_priority(which: i32, who: u32, prio: i32) -> Result<SyscallReturn> {
     let prio_target = PriorityTarget::new(which, who)?;
     let new_nice = {
-        let norm_prio = if prio > i8::MAX as i32 {
-            i8::MAX
-        } else if prio < i8::MIN as i32 {
-            i8::MIN
-        } else {
-            prio as i8
-        };
+        let norm_prio = prio.clamp(i8::MIN as i32, i8::MAX as i32) as i8;
         Nice::new(norm_prio)
     };
 
@@ -61,7 +55,7 @@ pub fn sys_get_priority(which: i32, who: u32) -> Result<SyscallReturn> {
 fn get_processes(prio_target: PriorityTarget) -> Result<Vec<Arc<Process>>> {
     Ok(match prio_target {
         PriorityTarget::Process(pid) => {
-            let process = process_table::get_process(&pid).ok_or(Error::new(Errno::ESRCH))?;
+            let process = process_table::get_process(pid).ok_or(Error::new(Errno::ESRCH))?;
             vec![process]
         }
         PriorityTarget::ProcessGroup(pgid) => {

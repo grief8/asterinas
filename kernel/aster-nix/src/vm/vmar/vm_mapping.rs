@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use core::ops::Range;
 
-use aster_frame::vm::{PageFlags, VmFrame, VmFrameVec, VmIo, VmMapOptions, VmSpace};
+use ostd::mm::{Frame, FrameVec, PageFlags, VmIo, VmMapOptions, VmSpace};
 
 use super::{interval::Interval, is_intersected, Vmar, Vmar_};
 use crate::{
@@ -140,21 +143,16 @@ impl VmMapping {
 
     /// Add a new committed page and map it to vmspace. If copy on write is set, it's allowed to unmap the page at the same address.
     /// FIXME: This implementation based on the truth that we map one page at a time. If multiple pages are mapped together, this implementation may have problems
-    pub(super) fn map_one_page(
-        &self,
-        page_idx: usize,
-        frame: VmFrame,
-        is_readonly: bool,
-    ) -> Result<()> {
+    fn map_one_page(&self, page_idx: usize, frame: Frame, is_readonly: bool) -> Result<()> {
         let parent = self.parent.upgrade().unwrap();
         let vm_space = parent.vm_space();
         self.inner
             .lock()
-            .map_one_page(&self.vmo, vm_space, page_idx, frame, is_readonly)
+            .map_one_page(vm_space, page_idx, frame, is_readonly)
     }
 
     /// unmap a page
-    pub(super) fn unmap_one_page(&self, page_idx: usize) -> Result<()> {
+    fn unmap_one_page(&self, page_idx: usize) -> Result<()> {
         let parent = self.parent.upgrade().unwrap();
         let vm_space = parent.vm_space();
         self.inner.lock().unmap_one_page(vm_space, page_idx)
@@ -381,12 +379,12 @@ impl VmMapping {
 
     /// Trim a range from the mapping.
     /// There are several cases.
-    /// 1. the trim_range is totally in the mapping. Then the mapping will split as two mappings.
-    /// 2. the trim_range covers the mapping. Then the mapping will be destroyed.
-    /// 3. the trim_range partly overlaps with the mapping, in left or right. Only overlapped part is trimmed.
-    /// If we create a mapping with a new map addr, we will add it to mappings_to_append.
-    /// If the mapping with map addr does not exist ever, the map addr will be added to mappings_to_remove.
-    /// Otherwise, we will directly modify self.
+    ///  1. the trim_range is totally in the mapping. Then the mapping will split as two mappings.
+    ///  2. the trim_range covers the mapping. Then the mapping will be destroyed.
+    ///  3. the trim_range partly overlaps with the mapping, in left or right. Only overlapped part is trimmed.
+    ///     If we create a mapping with a new map addr, we will add it to mappings_to_append.
+    ///     If the mapping with map addr does not exist ever, the map addr will be added to mappings_to_remove.
+    ///     Otherwise, we will directly modify self.
     pub fn trim_mapping(
         self: &Arc<Self>,
         trim_range: &Range<usize>,
@@ -455,10 +453,9 @@ impl VmMapping {
 impl VmMappingInner {
     fn map_one_page(
         &mut self,
-        vmo: &Vmo<Rights>,
         vm_space: &VmSpace,
         page_idx: usize,
-        frame: VmFrame,
+        frame: Frame,
         is_readonly: bool,
     ) -> Result<()> {
         let map_addr = self.page_map_addr(page_idx);
@@ -466,7 +463,7 @@ impl VmMappingInner {
         let vm_perms = {
             let mut perms = self.perms;
             if is_readonly {
-                debug_assert!(vmo.is_cow_vmo());
+                // COW pages are forced to be read-only.
                 perms -= VmPerms::WRITE;
             }
             perms
@@ -476,15 +473,18 @@ impl VmMappingInner {
             let mut options = VmMapOptions::new();
             options.addr(Some(map_addr));
             options.flags(vm_perms.into());
+
+            // After `fork()`, the entire memory space of the parent and child processes is
+            // protected as read-only. Therefore, whether the pages need to be COWed (if the memory
+            // region is private) or not (if the memory region is shared), it is necessary to
+            // overwrite the page table entry to make the page writable again when the parent or
+            // child process first tries to write to the memory region.
+            options.can_overwrite(true);
+
             options
         };
 
-        // Cow child allows unmapping the mapped page.
-        if vmo.is_cow_vmo() && vm_space.query(map_addr)?.is_some() {
-            vm_space.unmap(&(map_addr..(map_addr + PAGE_SIZE))).unwrap();
-        }
-
-        vm_space.map(VmFrameVec::from_one_frame(frame), &vm_map_options)?;
+        vm_space.map(FrameVec::from_one_frame(frame), &vm_map_options)?;
         self.mapped_pages.insert(page_idx);
         Ok(())
     }
@@ -671,12 +671,12 @@ impl<R1, R2> VmarMapOptions<R1, R2> {
     /// part of the mapping that is not backed by the VMO.
     /// So you may wonder: what is the point of supporting such _oversized_
     /// mappings?  The reason is two-fold.
-    /// 1. VMOs are resizable. So even if a mapping is backed by a VMO whose
-    /// size is equal to that of the mapping initially, we cannot prevent
-    /// the VMO from shrinking.
-    /// 2. Mappings are not allowed to overlap by default. As a result,
-    /// oversized mappings can serve as a placeholder to prevent future
-    /// mappings from occupying some particular address ranges accidentally.
+    ///  1. VMOs are resizable. So even if a mapping is backed by a VMO whose
+    ///     size is equal to that of the mapping initially, we cannot prevent
+    ///     the VMO from shrinking.
+    ///  2. Mappings are not allowed to overlap by default. As a result,
+    ///     oversized mappings can serve as a placeholder to prevent future
+    ///     mappings from occupying some particular address ranges accidentally.
     ///
     /// The default value is the size of the VMO.
     pub fn size(mut self, size: usize) -> Self {

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
-pub use aster_frame::arch::console;
-use aster_frame::vm::VmReader;
+#![allow(dead_code)]
+
+pub use ostd::arch::console;
+use ostd::mm::VmReader;
 use spin::Once;
 
 use crate::{
@@ -68,6 +70,12 @@ impl TtyDriver {
         for tty in &*self.ttys.lock_irq_disabled() {
             tty.push_char(ch);
         }
+    }
+}
+
+impl Default for TtyDriver {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(dead_code)]
+
 use bitvec::prelude::BitVec;
 
 /// A blocks hole descriptor implemented by the `BitVec`.
@@ -31,7 +33,7 @@ impl BlocksHoleDesc {
 
     /// Returns if the block `idx` is a hole.
     ///
-    /// # Panic
+    /// # Panics
     ///
     /// If the `idx` is out of bounds, this method will panic.
     pub fn is_hole(&self, idx: usize) -> bool {
@@ -40,7 +42,7 @@ impl BlocksHoleDesc {
 
     /// Marks the block `idx` as a hole.
     ///
-    /// # Panic
+    /// # Panics
     ///
     /// If the `idx` is out of bounds, this method will panic.
     pub fn set(&mut self, idx: usize) {
@@ -49,7 +51,7 @@ impl BlocksHoleDesc {
 
     /// Unmarks the block `idx` as a hole.
     ///
-    /// # Panic
+    /// # Panics
     ///
     /// If the `idx` is out of bounds, this method will panic.
     pub fn unset(&mut self, idx: usize) {

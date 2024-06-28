@@ -200,18 +200,9 @@ impl Bundle {
             ActionChoice::Test => &config.test,
         };
         let mut qemu_cmd = Command::new(&action.qemu.path);
+
         qemu_cmd.current_dir(&config.work_dir);
-        match shlex::split(&action.qemu.args) {
-            Some(v) => {
-                for arg in v {
-                    qemu_cmd.arg(arg);
-                }
-            }
-            None => {
-                error_msg!("Failed to parse qemu args: {:#?}", &action.qemu.args);
-                process::exit(Errno::ParseMetadata as _);
-            }
-        }
+
         match action.boot.method {
             BootMethod::QemuDirect => {
                 let aster_bin = self.manifest.aster_bin.as_ref().unwrap();
@@ -228,21 +219,45 @@ impl Bundle {
             BootMethod::GrubRescueIso => {
                 let vm_image = self.manifest.vm_image.as_ref().unwrap();
                 assert!(matches!(vm_image.typ(), AsterVmImageType::GrubIso(_)));
-                qemu_cmd.arg("-cdrom").arg(self.path.join(vm_image.path()));
+                let bootdev_opts = action
+                    .qemu
+                    .bootdev_append_options
+                    .as_deref()
+                    .unwrap_or(",index=2,media=cdrom");
+                qemu_cmd.arg("-drive").arg(format!(
+                    "file={},format=raw{}",
+                    self.path.join(vm_image.path()).to_string_lossy(),
+                    bootdev_opts,
+                ));
             }
             BootMethod::GrubQcow2 => {
                 let vm_image = self.manifest.vm_image.as_ref().unwrap();
                 assert!(matches!(vm_image.typ(), AsterVmImageType::Qcow2(_)));
+                // FIXME: this doesn't work for regular QEMU, but may work for TDX.
+                let bootdev_opts = action
+                    .qemu
+                    .bootdev_append_options
+                    .as_deref()
+                    .unwrap_or(",if=virtio");
                 qemu_cmd.arg("-drive").arg(format!(
-                    "file={},index=0,media=disk,format=qcow2",
-                    self.path
-                        .join(vm_image.path())
-                        .into_os_string()
-                        .into_string()
-                        .unwrap()
+                    "file={},format=qcow2{}",
+                    self.path.join(vm_image.path()).to_string_lossy(),
+                    bootdev_opts,
                 ));
             }
         };
+
+        match shlex::split(&action.qemu.args) {
+            Some(v) => {
+                for arg in v {
+                    qemu_cmd.arg(arg);
+                }
+            }
+            None => {
+                error_msg!("Failed to parse qemu args: {:#?}", &action.qemu.args);
+                process::exit(Errno::ParseMetadata as _);
+            }
+        }
 
         info!("Running QEMU: {:#?}", qemu_cmd);
 
@@ -264,8 +279,8 @@ impl Bundle {
             let qemu_exit_code = exit_status.code().unwrap();
             let kernel_exit_code = qemu_exit_code >> 1;
             match kernel_exit_code {
-                0x10 /*aster_frame::QemuExitCode::Success*/ => { std::process::exit(0); },
-                0x20 /*aster_frame::QemuExitCode::Failed*/ => { std::process::exit(1); },
+                0x10 /*ostd::QemuExitCode::Success*/ => { std::process::exit(0); },
+                0x20 /*ostd::QemuExitCode::Failed*/ => { std::process::exit(1); },
                 _ /* unknown, e.g., a triple fault */ => { std::process::exit(2) },
             }
         }

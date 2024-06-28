@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(dead_code)]
+
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use aster_rights::{Read, ReadOp, TRights, Write, WriteOp};
@@ -538,6 +540,8 @@ impl<T> AsRef<Error> for (Error, T) {
 #[cfg(ktest)]
 mod test {
     use alloc::sync::Arc;
+
+    use ostd::prelude::*;
 
     use crate::fs::utils::Channel;
 

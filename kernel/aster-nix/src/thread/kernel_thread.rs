@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use aster_frame::{
+use ostd::{
     cpu::CpuSet,
     task::{Priority, TaskOptions},
 };
@@ -44,6 +44,8 @@ impl KernelThreadExt for Thread {
             let weal_thread = thread_ref.clone();
             let task = TaskOptions::new(thread_fn)
                 .data(weal_thread)
+                .priority(thread_options.priority)
+                .cpu_affinity(thread_options.cpu_affinity)
                 .build()
                 .unwrap();
             let status = ThreadStatus::Init;

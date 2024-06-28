@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 //! This module is used to parse elf file content to get elf_load_info.
 //! When create a process from elf file, we will use the elf_load_info to construct the VmSpace
 
 use align_ext::AlignExt;
-use aster_frame::{task::Task, vm::VmIo};
 use aster_rights::{Full, Rights};
+use ostd::mm::VmIo;
 use xmas_elf::program::{self, ProgramHeader64};
 
 use super::elf_file::Elf;
@@ -42,15 +45,7 @@ pub fn load_elf_to_vm(
 ) -> Result<ElfLoadInfo> {
     let parsed_elf = Elf::parse_elf(file_header)?;
 
-    let ldso = if parsed_elf.is_shared_object() {
-        Some(lookup_and_parse_ldso(
-            &parsed_elf,
-            file_header,
-            fs_resolver,
-        )?)
-    } else {
-        None
-    };
+    let ldso = lookup_and_parse_ldso(&parsed_elf, file_header, fs_resolver)?;
 
     match init_and_map_vmos(process_vm, ldso, &parsed_elf, &elf_file) {
         Ok((entry_point, mut aux_vec)) => {
@@ -72,7 +67,7 @@ pub fn load_elf_to_vm(
                 user_stack_top,
             })
         }
-        Err(_) => {
+        Err(err) => {
             // Since the process_vm is in invalid state,
             // the process cannot return to user space again,
             // so `Vmar::clear` and `do_exit_group` are called here.
@@ -84,7 +79,9 @@ pub fn load_elf_to_vm(
             // the macro will panic. This corner case should be handled later.
             // FIXME: how to set the correct exit status?
             do_exit_group(TermStatus::Exited(1));
-            Task::current().exit();
+
+            // The process will exit and the error code will be ignored.
+            Err(err)
         }
     }
 }
@@ -93,9 +90,11 @@ fn lookup_and_parse_ldso(
     elf: &Elf,
     file_header: &[u8],
     fs_resolver: &FsResolver,
-) -> Result<(Arc<Dentry>, Elf)> {
+) -> Result<Option<(Arc<Dentry>, Elf)>> {
     let ldso_file = {
-        let ldso_path = elf.ldso_path(file_header)?;
+        let Some(ldso_path) = elf.ldso_path(file_header)? else {
+            return Ok(None);
+        };
         let fs_path = FsPath::new(AT_FDCWD, &ldso_path)?;
         fs_resolver.lookup(&fs_path)?
     };
@@ -105,7 +104,7 @@ fn lookup_and_parse_ldso(
         inode.read_at(0, &mut *buf)?;
         Elf::parse_elf(&*buf)?
     };
-    Ok((ldso_file, ldso_elf))
+    Ok(Some((ldso_file, ldso_elf)))
 }
 
 fn load_ldso(root_vmar: &Vmar<Full>, ldso_file: &Dentry, ldso_elf: &Elf) -> Result<LdsoLoadInfo> {

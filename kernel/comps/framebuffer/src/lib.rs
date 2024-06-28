@@ -2,7 +2,7 @@
 
 //! The framebuffer of Asterinas.
 #![no_std]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 #![feature(strict_provenance)]
 
 extern crate alloc;
@@ -13,14 +13,14 @@ use core::{
     ops::{Index, IndexMut},
 };
 
-use aster_frame::{
-    boot,
-    io_mem::IoMem,
-    sync::SpinLock,
-    vm::{VmIo, PAGE_SIZE},
-};
 use component::{init_component, ComponentInitError};
 use font8x8::UnicodeFonts;
+use ostd::{
+    boot,
+    io_mem::IoMem,
+    mm::{VmIo, PAGE_SIZE},
+    sync::SpinLock,
+};
 use spin::Once;
 
 #[init_component]
@@ -39,7 +39,7 @@ pub(crate) fn init() {
     let mut writer = {
         let framebuffer = boot::framebuffer_arg();
         let mut size = 0;
-        for i in aster_frame::vm::FRAMEBUFFER_REGIONS.get().unwrap().iter() {
+        for i in ostd::mm::FRAMEBUFFER_REGIONS.get().unwrap().iter() {
             size = i.len();
         }
 

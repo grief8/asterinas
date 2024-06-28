@@ -2,38 +2,118 @@
 
 # SPDX-License-Identifier: MPL-2.0
 
-# This script is used to update Asterinas version numbers in all relevant files in the repository.
-# Usage: ./tools/bump_version.sh <new_version>
+set -e
 
-# Update Cargo style versions (`version = "{version}"`) in file $1
-update_cargo_versions() {
+# This script is used to update Asterinas version numbers in all relevant files in the repository.
+# Usage: ./tools/bump_version.sh bump_type
+# bump_type can be one of: patch, minor, or major.
+
+# TODO: we may remove the VERSION file in the future, 
+# and retrieve the current version from git tag.
+
+# Update the package version (`version = "{version}"`) in file $1
+update_package_version() {
     echo "Updating file $1"
-    sed -i "s/^version = \"[[:digit:]]\+\.[[:digit:]]\+\.[[:digit:]]\+\"$/version = \"${new_version}\"/g" $1
+    # Package version is usually the first version in Cargo.toml,
+    # so only the first matched version is updated.
+    pattern="^version = \"[[:digit:]]\+\.[[:digit:]]\+\.[[:digit:]]\+\"$"
+    sed -i "0,/${pattern}/s/${pattern}/version = \"${new_version}\"/1" $1
 }
 
 # Update Docker image versions (`asterinas/asterinas:{version}`) in file $1
 update_image_versions() {
     echo "Updating file $1"
+    # Update the version of the development container
     sed -i "s/asterinas\/asterinas:[[:digit:]]\+\.[[:digit:]]\+\.[[:digit:]]\+/asterinas\/asterinas:${new_version}/g" $1
+    # Update the test environment described in the OSDK manual
+    sed -i "s/asterinas\/osdk:[[:digit:]]\+\.[[:digit:]]\+\.[[:digit:]]\+/asterinas\/osdk:${new_version}/g" $1
+}
+
+# Print the help message
+print_help() {
+    echo "Usage: $0 bump_type"
+    echo ""
+    echo "The bump_type argument must be either \"patch\", \"minor\", or \"major\","
+    echo "which instructs the script to increment the patch, minor, and major part"
+    echo "of the semantic version number of Asterinas, respectively."
+}
+
+# Add the number $1 by 1
+# Bash cannot deal with 0 by using `$((num + 1))`,
+# So this function is defined to specially deal with 0.
+add_one() {
+    local num=$1
+    if [ "$num" == "0" ]; then
+        echo "1"
+    else
+        local bumped=$((num + 1))
+        echo "$bumped"
+    fi
+}
+
+# Bump the version based on $bump_type
+bump_version() {
+    local IFS="."
+    local version_parts=($current_version)
+
+    case "$bump_type" in
+        "patch")
+            version_parts[2]=$(add_one "${version_parts[2]}")
+            ;;
+        "minor")
+            version_parts[1]=$(add_one "${version_parts[1]}")
+            version_parts[2]=0
+            ;;
+        "major")
+            version_parts[0]=$(add_one "${version_parts[0]}")
+            version_parts[1]=0
+            version_parts[2]=0
+            ;;
+    esac
+
+    echo "${version_parts[*]}"
+}
+
+# Validate the bump type
+validate_bump_type() {
+    case "$bump_type" in
+        "patch" | "minor" | "major")
+            ;;
+        *)
+        echo "Error: Invalid bump_type. Allowed values are: patch, minor, or major."
+        print_help
+        exit 1
+        ;;
+    esac
+}
+
+# Update tag version (`v{version}`) in file $1
+update_tag_version() {
+    echo "Updating file $1"
+    sed -i "s/v[[:digit:]]\+\.[[:digit:]]\+\.[[:digit:]]\+/v${new_version}/g" $1
 }
 
 SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 ASTER_SRC_DIR=${SCRIPT_DIR}/..
+DOCS_DIR=${ASTER_SRC_DIR}/docs
 CARGO_TOML_PATH=${ASTER_SRC_DIR}/Cargo.toml
 OSDK_CARGO_TOML_PATH=${ASTER_SRC_DIR}/osdk/Cargo.toml
 VERSION_PATH=${ASTER_SRC_DIR}/VERSION
 
-# Get and check the new version number
-if [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    new_version=$1
-else
-    printf "Invalid version number: $1\nUsage: ./tools/bump_version.sh <new_version>\n"
-    exit -1
+current_version=$(cat ${VERSION_PATH})
+bump_type=$1
+
+if [[ "$bump_type" == "--help" || "$bump_type" == "-h" ]]; then
+  print_help
+  exit 0
 fi
 
-# Update Cargo.toml
-update_cargo_versions ${CARGO_TOML_PATH}
-update_cargo_versions ${OSDK_CARGO_TOML_PATH}
+validate_bump_type
+new_version=$(bump_version ${current_version})
+
+# Update the package version in Cargo.toml
+update_package_version ${CARGO_TOML_PATH}
+update_package_version ${OSDK_CARGO_TOML_PATH}
 
 # Automatically bump Cargo.lock file
 cargo update -p asterinas --precise $new_version
@@ -42,6 +122,7 @@ cargo update -p asterinas --precise $new_version
 update_image_versions ${ASTER_SRC_DIR}/README.md
 update_image_versions ${ASTER_SRC_DIR}/README_CN.md
 update_image_versions ${SCRIPT_DIR}/docker/README.md
+update_image_versions ${DOCS_DIR}/src/kernel/intel_tdx.md
 
 # Update Docker image versions in workflows
 WORKFLOWS=$(find "${ASTER_SRC_DIR}/.github/workflows/" -type f -name "*.yml")
@@ -49,11 +130,16 @@ for workflow in $WORKFLOWS; do
     update_image_versions $workflow
 done
 
+# Update tag version in release_tag workflow
+RELEASE_TAG_WORKFLOW=${ASTER_SRC_DIR}/.github/workflows/release_tag.yml
+update_tag_version $RELEASE_TAG_WORKFLOW
+
 # Update Docker image versions in the documentation
 GET_STARTED_PATH=${ASTER_SRC_DIR}/docs/src/kernel/README.md
 update_image_versions $GET_STARTED_PATH
 
 # Create or update VERSION
-echo "${new_version}" > ${VERSION_PATH}
+# `-n` is used to avoid adding a '\n' in the VERSION file.
+echo -n "${new_version}" > ${VERSION_PATH}
 
 echo "Bumped Asterinas & OSDK version to $new_version"

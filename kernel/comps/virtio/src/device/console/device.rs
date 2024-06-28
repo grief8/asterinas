@@ -4,14 +4,14 @@ use alloc::{boxed::Box, fmt::Debug, string::ToString, sync::Arc, vec::Vec};
 use core::hint::spin_loop;
 
 use aster_console::{AnyConsoleDevice, ConsoleCallback};
-use aster_frame::{
-    io_mem::IoMem,
-    sync::{RwLock, SpinLock},
-    trap::TrapFrame,
-    vm::{DmaDirection, DmaStream, DmaStreamSlice, VmAllocOptions, VmReader},
-};
 use aster_util::safe_ptr::SafePtr;
 use log::debug;
+use ostd::{
+    io_mem::IoMem,
+    mm::{DmaDirection, DmaStream, DmaStreamSlice, FrameAllocOptions, VmReader},
+    sync::{RwLock, SpinLock},
+    trap::TrapFrame,
+};
 
 use super::{config::VirtioConsoleConfig, DEVICE_NAME};
 use crate::{
@@ -87,12 +87,12 @@ impl ConsoleDevice {
             SpinLock::new(VirtQueue::new(TRANSMIT0_QUEUE_INDEX, 2, transport.as_mut()).unwrap());
 
         let send_buffer = {
-            let vm_segment = VmAllocOptions::new(1).alloc_contiguous().unwrap();
+            let vm_segment = FrameAllocOptions::new(1).alloc_contiguous().unwrap();
             DmaStream::map(vm_segment, DmaDirection::ToDevice, false).unwrap()
         };
 
         let receive_buffer = {
-            let vm_segment = VmAllocOptions::new(1).alloc_contiguous().unwrap();
+            let vm_segment = FrameAllocOptions::new(1).alloc_contiguous().unwrap();
             DmaStream::map(vm_segment, DmaDirection::FromDevice, false).unwrap()
         };
 

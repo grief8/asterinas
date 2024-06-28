@@ -2,8 +2,8 @@
 
 //! Read the Cpu context content then dispatch syscall to corrsponding handler
 //! The each sub module contains functions that handle real syscall logic.
-use aster_frame::cpu::UserContext;
-pub use clock_gettime::ClockID;
+pub use clock_gettime::ClockId;
+use ostd::cpu::UserContext;
 
 use crate::{cpu::LinuxAbi, prelude::*};
 
@@ -14,6 +14,8 @@ mod arch;
 mod arch_prctl;
 mod bind;
 mod brk;
+mod capget;
+mod capset;
 mod chdir;
 mod chmod;
 mod chown;
@@ -46,6 +48,7 @@ mod getppid;
 mod getrandom;
 mod getresgid;
 mod getresuid;
+mod getrusage;
 mod getsid;
 mod getsockname;
 mod getsockopt;
@@ -60,6 +63,7 @@ mod lseek;
 mod madvise;
 mod mkdir;
 mod mmap;
+mod mount;
 mod mprotect;
 mod munmap;
 mod nanosleep;
@@ -69,18 +73,26 @@ mod pipe;
 mod poll;
 mod prctl;
 mod pread64;
+mod preadv;
 mod prlimit64;
+mod pwrite64;
+mod pwritev;
 mod read;
 mod readlink;
 mod recvfrom;
+mod recvmsg;
 mod rename;
 mod rmdir;
 mod rt_sigaction;
+mod rt_sigpending;
 mod rt_sigprocmask;
 mod rt_sigreturn;
 mod rt_sigsuspend;
+mod sched_getaffinity;
 mod sched_yield;
 mod select;
+mod sendfile;
+mod sendmsg;
 mod sendto;
 mod set_get_priority;
 mod set_robust_list;
@@ -89,6 +101,7 @@ mod setfsgid;
 mod setfsuid;
 mod setgid;
 mod setgroups;
+mod setitimer;
 mod setpgid;
 mod setregid;
 mod setresgid;
@@ -107,15 +120,17 @@ mod symlink;
 mod sync;
 mod tgkill;
 mod time;
+mod timer_create;
+mod timer_settime;
 mod truncate;
 mod umask;
+mod umount;
 mod uname;
 mod unlink;
 mod utimens;
 mod wait4;
 mod waitid;
 mod write;
-mod writev;
 
 /// This macro is used to define syscall handler.
 /// The first param is ths number of parameters,
@@ -147,7 +162,7 @@ macro_rules! dispatch_fn_inner {
         $crate::syscall::syscall_handler!($cnt, $handler, $args, &$context)
     };
     ( $args: ident, $context: ident, $handler: ident ( args[ .. $cnt: tt ] , &mut context ) ) => {
-        // `$context` is already of type `&mut aster_frame::cpu::UserContext`,
+        // `$context` is already of type `&mut ostd::cpu::UserContext`,
         // so no need to take `&mut` again
         $crate::syscall::syscall_handler!($cnt, $handler, $args, $context)
     };
@@ -165,7 +180,7 @@ macro_rules! impl_syscall_nums_and_dispatch_fn {
         pub fn syscall_dispatch(
             syscall_number: u64,
             args: [u64; 6],
-            context: &mut aster_frame::cpu::UserContext,
+            context: &mut ostd::cpu::UserContext,
         ) -> $crate::prelude::Result<$crate::syscall::SyscallReturn> {
             match syscall_number {
                 $(

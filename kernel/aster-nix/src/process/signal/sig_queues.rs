@@ -3,7 +3,11 @@
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use super::{
-    constants::*, sig_mask::SigMask, sig_num::SigNum, signals::Signal, SigEvents, SigEventsFilter,
+    constants::*,
+    sig_mask::{SigMask, SigSet},
+    sig_num::SigNum,
+    signals::Signal,
+    SigEvents, SigEventsFilter,
 };
 use crate::{
     events::{Observer, Subject},
@@ -55,6 +59,17 @@ impl SigQueues {
             self.count.fetch_sub(1, Ordering::Relaxed);
         }
         signal
+    }
+
+    /// Returns the pending signals
+    pub fn sig_pending(&self) -> SigSet {
+        let queues = self.queues.lock();
+        queues.sig_pending()
+    }
+
+    /// Returns whether there's some pending signals that are not blocked
+    pub fn has_pending(&self, blocked: SigMask) -> bool {
+        self.queues.lock().has_pending(blocked)
     }
 
     pub fn register_observer(
@@ -180,6 +195,15 @@ impl Queues {
         None
     }
 
+    /// Returns whether the `SigQueues` has some pending signals which are not blocked
+    fn has_pending(&self, blocked: SigMask) -> bool {
+        self.std_queues.iter().any(|signal| {
+            signal
+                .as_ref()
+                .is_some_and(|signal| !blocked.contains(signal.num()))
+        }) || self.rt_queues.iter().any(|rt_queue| !rt_queue.is_empty())
+    }
+
     fn get_std_queue_mut(&mut self, signum: SigNum) -> &mut Option<Box<dyn Signal>> {
         debug_assert!(signum.is_std());
         let idx = (signum.as_u8() - MIN_STD_SIG_NUM) as usize;
@@ -190,5 +214,25 @@ impl Queues {
         debug_assert!(signum.is_real_time());
         let idx = (signum.as_u8() - MIN_RT_SIG_NUM) as usize;
         &mut self.rt_queues[idx]
+    }
+
+    fn sig_pending(&self) -> SigSet {
+        let mut pending = SigSet::new_empty();
+
+        // Process standard signal queues
+        for (idx, signal) in self.std_queues.iter().enumerate() {
+            if signal.is_some() {
+                pending.add_signal(SigNum::from_u8(idx as u8 + MIN_STD_SIG_NUM));
+            }
+        }
+
+        // Process real-time signal queues
+        for (idx, signals) in self.rt_queues.iter().enumerate() {
+            if !signals.is_empty() {
+                pending.add_signal(SigNum::from_u8(idx as u8 + MIN_RT_SIG_NUM));
+            }
+        }
+
+        pending
     }
 }

@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: MPL-2.0
 
+use self::timer_manager::PosixTimerManager;
 use super::{
     posix_thread::PosixThreadExt,
     process_table,
     process_vm::{Heap, InitStackReader, ProcessVm},
     rlimit::ResourceLimits,
     signal::{
-        constants::{SIGALRM, SIGCHLD},
+        constants::SIGCHLD,
         sig_disposition::SigDispositions,
         sig_mask::SigMask,
-        signals::{kernel::KernelSignal, Signal},
+        sig_num::{AtomicSigNum, SigNum},
+        signals::Signal,
         Pauser,
     },
     status::ProcessStatus,
@@ -20,12 +22,8 @@ use crate::{
     fs::{file_table::FileTable, fs_resolver::FsResolver, utils::FileCreationMask},
     prelude::*,
     sched::nice::Nice,
-    thread::{
-        allocate_tid,
-        work_queue::{submit_work_item, work_item::WorkItem},
-        Thread,
-    },
-    time::{clocks::RealTimeClock, Timer},
+    thread::{allocate_tid, Thread},
+    time::clocks::ProfClock,
     vm::vmar::Vmar,
 };
 
@@ -34,6 +32,7 @@ mod job_control;
 mod process_group;
 mod session;
 mod terminal;
+mod timer_manager;
 
 use aster_rights::Full;
 use atomic::Atomic;
@@ -50,7 +49,11 @@ pub type Pgid = u32;
 /// Session Id.
 pub type Sid = u32;
 
-pub type ExitCode = i32;
+pub type ExitCode = u32;
+
+pub(super) fn init() {
+    timer_manager::init();
+}
 
 /// Process stands for a set of threads that shares the same userspace.
 pub struct Process {
@@ -60,8 +63,7 @@ pub struct Process {
     process_vm: ProcessVm,
     /// Wait for child status changed
     children_pauser: Arc<Pauser>,
-    /// The timer counts down in real (i.e., wall clock) time
-    alarm_timer: Arc<Timer>,
+
     // Mutable Part
     /// The executable path.
     executable_path: RwLock<String>,
@@ -91,26 +93,14 @@ pub struct Process {
     // Signal
     /// Sig dispositions
     sig_dispositions: Arc<Mutex<SigDispositions>>,
-}
+    /// The signal that the process should receive when parent process exits.
+    parent_death_signal: AtomicSigNum,
 
-fn create_process_timer_callback(process_ref: &Weak<Process>) -> impl Fn() {
-    let current_process = process_ref.clone();
-    let sent_signal = move || {
-        let signal = KernelSignal::new(SIGALRM);
-        if let Some(process) = current_process.upgrade() {
-            process.enqueue_signal(signal);
-        }
-    };
+    /// A profiling clock measures the user CPU time and kernel CPU time of the current process.
+    prof_clock: Arc<ProfClock>,
 
-    let work_func = Box::new(sent_signal);
-    let work_item = Arc::new(WorkItem::new(work_func));
-
-    move || {
-        submit_work_item(
-            work_item.clone(),
-            crate::thread::work_queue::WorkPriority::High,
-        );
-    }
+    /// A manager that manages timer resources and utilities of the process.
+    timer_manager: PosixTimerManager,
 }
 
 impl Process {
@@ -121,12 +111,14 @@ impl Process {
         threads: Vec<Arc<Thread>>,
         executable_path: String,
         process_vm: ProcessVm,
-        file_table: Arc<Mutex<FileTable>>,
+
         fs: Arc<RwMutex<FsResolver>>,
+        file_table: Arc<Mutex<FileTable>>,
+
         umask: Arc<RwLock<FileCreationMask>>,
-        sig_dispositions: Arc<Mutex<SigDispositions>>,
         resource_limits: ResourceLimits,
         nice: Nice,
+        sig_dispositions: Arc<Mutex<SigDispositions>>,
     ) -> Arc<Self> {
         let children_pauser = {
             // SIGCHID does not interrupt pauser. Child process will
@@ -135,28 +127,27 @@ impl Process {
             Pauser::new_with_mask(sigmask)
         };
 
-        Arc::new_cyclic(|process_ref: &Weak<Process>| {
-            let callback = create_process_timer_callback(process_ref);
-            let alarm_timer = RealTimeClock::timer_manager().create_timer(callback);
+        let prof_clock = ProfClock::new();
 
-            Self {
-                pid,
-                threads: Mutex::new(threads),
-                executable_path: RwLock::new(executable_path),
-                process_vm,
-                children_pauser,
-                alarm_timer,
-                status: Mutex::new(ProcessStatus::Uninit),
-                parent: Mutex::new(parent),
-                children: Mutex::new(BTreeMap::new()),
-                process_group: Mutex::new(Weak::new()),
-                file_table,
-                fs,
-                umask,
-                sig_dispositions,
-                resource_limits: Mutex::new(resource_limits),
-                nice: Atomic::new(nice),
-            }
+        Arc::new_cyclic(|process_ref: &Weak<Process>| Self {
+            pid,
+            threads: Mutex::new(threads),
+            executable_path: RwLock::new(executable_path),
+            process_vm,
+            children_pauser,
+            status: Mutex::new(ProcessStatus::Uninit),
+            parent: Mutex::new(parent),
+            children: Mutex::new(BTreeMap::new()),
+            process_group: Mutex::new(Weak::new()),
+            file_table,
+            fs,
+            umask,
+            sig_dispositions,
+            parent_death_signal: AtomicSigNum::new_empty(),
+            resource_limits: Mutex::new(resource_limits),
+            nice: Atomic::new(nice),
+            timer_manager: PosixTimerManager::new(&prof_clock, process_ref),
+            prof_clock,
         })
     }
 
@@ -233,8 +224,14 @@ impl Process {
         self.pid
     }
 
-    pub fn alarm_timer(&self) -> &Arc<Timer> {
-        &self.alarm_timer
+    /// Gets the profiling clock of the process.
+    pub fn prof_clock(&self) -> &Arc<ProfClock> {
+        &self.prof_clock
+    }
+
+    /// Gets the timer resources and utilities of the process.
+    pub fn timer_manager(&self) -> &PosixTimerManager {
+        &self.timer_manager
     }
 
     pub fn threads(&self) -> &Mutex<Vec<Arc<Thread>>> {
@@ -288,7 +285,7 @@ impl Process {
 
     // *********** Process group & Session***********
 
-    /// Returns the process group id of the process.
+    /// Returns the process group ID of the process.
     pub fn pgid(&self) -> Pgid {
         if let Some(process_group) = self.process_group.lock().upgrade() {
             process_group.pgid()
@@ -340,8 +337,8 @@ impl Process {
     /// and moves the process to the session, returning the new session.
     ///
     /// This method may return the following errors:
-    /// * `EPERM`, if the process is a process group leader, or some existing session
-    /// or process group has the same id as the process.
+    ///  * `EPERM`, if the process is a process group leader, or some existing session
+    ///    or process group has the same ID as the process.
     pub fn to_new_session(self: &Arc<Self>) -> Result<Arc<Session>> {
         if self.is_session_leader() {
             return Ok(self.session().unwrap());
@@ -408,14 +405,14 @@ impl Process {
 
     /// Moves the process to other process group.
     ///
-    /// * If the group already exists, the process and the group should belong to the same session.
-    /// * If the group does not exist, this method creates a new group for the process and move the
-    /// process to the group. The group is added to the session of the process.
+    ///  * If the group already exists, the process and the group should belong to the same session.
+    ///  * If the group does not exist, this method creates a new group for the process and move the
+    ///    process to the group. The group is added to the session of the process.
     ///
     /// This method may return `EPERM` in following cases:
-    /// * The process is session leader;
-    /// * The group already exists, but the group does not belong to the same session as the process;
-    /// * The group does not exist, but `pgid` is not equal to `pid` of the process.
+    ///  * The process is session leader;
+    ///  * The group already exists, but the group does not belong to the same session as the process;
+    ///  * The group does not exist, but `pgid` is not equal to `pid` of the process.
     pub fn to_other_group(self: &Arc<Self>, pgid: Pgid) -> Result<()> {
         // if the process already belongs to the process group
         if self.pgid() == pgid {
@@ -439,7 +436,7 @@ impl Process {
             if pgid != self.pid() {
                 return_errno_with_message!(
                     Errno::EPERM,
-                    "the new process group should have the same id as the process."
+                    "the new process group should have the same ID as the process."
                 );
             }
 
@@ -599,6 +596,24 @@ impl Process {
         posix_thread.enqueue_signal(Box::new(signal));
     }
 
+    /// Clears the parent death signal.
+    pub fn clear_parent_death_signal(&self) {
+        self.parent_death_signal.clear();
+    }
+
+    /// Sets the parent death signal as `signum`.
+    pub fn set_parent_death_signal(&self, sig_num: SigNum) {
+        self.parent_death_signal.set(sig_num);
+    }
+
+    /// Returns the parent death signal.
+    ///
+    /// The parent death signal is the signal will be sent to child processes
+    /// when the process exits.
+    pub fn parent_death_signal(&self) -> Option<SigNum> {
+        self.parent_death_signal.as_sig_num()
+    }
+
     // ******************* Status ********************
 
     fn set_runnable(&self) {
@@ -617,7 +632,7 @@ impl Process {
         *self.status.lock() = ProcessStatus::Zombie(term_status);
     }
 
-    pub fn exit_code(&self) -> Option<u32> {
+    pub fn exit_code(&self) -> Option<ExitCode> {
         match &*self.status.lock() {
             ProcessStatus::Runnable | ProcessStatus::Uninit => None,
             ProcessStatus::Zombie(term_status) => Some(term_status.as_u32()),
@@ -637,7 +652,7 @@ pub fn current() -> Arc<Process> {
 #[cfg(ktest)]
 mod test {
 
-    use spin::Once;
+    use ostd::prelude::*;
 
     use super::*;
 
@@ -656,12 +671,12 @@ mod test {
             vec![],
             String::new(),
             ProcessVm::alloc(),
-            Arc::new(Mutex::new(FileTable::new())),
             Arc::new(RwMutex::new(FsResolver::new())),
+            Arc::new(Mutex::new(FileTable::new())),
             Arc::new(RwLock::new(FileCreationMask::default())),
-            Arc::new(Mutex::new(SigDispositions::default())),
             ResourceLimits::default(),
             Nice::default(),
+            Arc::new(Mutex::new(SigDispositions::default())),
         )
     }
 

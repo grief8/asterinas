@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+#![allow(dead_code)]
+
 //! A global table stores the pid to process mapping.
 //! This table can be used to get process with pid.
 //! TODO: progress group, thread all need similar mapping
@@ -20,8 +22,8 @@ static SESSION_TABLE: Mutex<BTreeMap<Sid, Arc<Session>>> = Mutex::new(BTreeMap::
 // ************ Process *************
 
 /// Gets a process with pid
-pub fn get_process(pid: &Pid) -> Option<Arc<Process>> {
-    PROCESS_TABLE.lock().get(pid).cloned()
+pub fn get_process(pid: Pid) -> Option<Arc<Process>> {
+    PROCESS_TABLE.lock().get(&pid).cloned()
 }
 
 pub(super) fn process_table_mut() -> MutexGuard<'static, BTreeMap<Pid, Arc<Process>>> {

@@ -1,9 +1,9 @@
 #![no_std]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
-use aster_frame::prelude::*;
+use ostd::prelude::*;
 
-#[aster_main]
+#[ostd::main]
 fn kernel_main() {
     println!("Hello world from guest kernel!");
 }
