@@ -22,7 +22,7 @@ COMMON_QEMU_ARGS="\
     -serial chardev:mux \
     -monitor chardev:mux \
     -chardev stdio,id=mux,mux=on,signal=off,logfile=qemu.log \
-    -netdev user,id=net01,hostfwd=tcp::$RAND_PORT_NUM1-:22,hostfwd=tcp::$RAND_PORT_NUM2-:8080 \
+    -netdev user,id=net01,hostfwd=tcp::$RAND_PORT_NUM1-:22,hostfwd=tcp::$RAND_PORT_NUM2-:8080,hostfwd=tcp::5201-:5201 \
     -object filter-dump,id=filter0,netdev=net01,file=virtio-net.pcap \
     -device isa-debug-exit,iobase=0xf4,iosize=0x04 \
     -drive if=none,format=raw,id=x0,file=./test/build/ext2.img \

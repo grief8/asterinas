@@ -8,7 +8,8 @@ set -e
 BENCHMARK_DIR="/benchmark"
 
 BENCH_NAME=$1
-SYSTEM=$2
+SYSTEM="${2:-asterinas}"
+echo "Running benchmark: ${BENCH_NAME} on ${SYSTEM}"
 
 print_help() {
     echo "Usage: $0 <benchmark_name> <system_type>"
@@ -44,7 +45,12 @@ prepare_system() {
     if [ "$SYSTEM" = "linux" ]; then
         mount -t devtmpfs devtmpfs /dev
         ip link set lo up
+        modprobe failover
+        modprobe net_failover
+        modprobe virtio_net
         modprobe virtio_blk
+        ip link set eth0 up
+        ifconfig eth0 10.0.2.15
         mkfs.ext2 -F /dev/vda
         mount -t ext2 /dev/vda /ext2
     elif [ "$SYSTEM" = "asterinas" ]; then

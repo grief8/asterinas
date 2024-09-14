@@ -23,24 +23,42 @@ prepare_libs() {
     # Download the Linux kernel and modules
     mkdir -p "${LINUX_DEPENDENCIES_DIR}"
 
-    if [ ! -f "${LINUX_KERNEL}" ]; then
-        echo "Downloading the Linux kernel image..."
-        ${WGET_SCRIPT} "${LINUX_KERNEL}" "https://raw.githubusercontent.com/asterinas/linux_binary_cache/8a5b6fd/vmlinuz-${LINUX_KERNEL_VERSION}" || {
-            echo "Failed to download the Linux kernel image."
-            exit 1
-        }
-    fi
-    if [ ! -f "${LINUX_DEPENDENCIES_DIR}/virtio_blk.ko" ]; then
-        echo "Downloading the virtio_blk kernel module..."
-        ${WGET_SCRIPT} "${LINUX_DEPENDENCIES_DIR}/virtio_blk.ko" "https://raw.githubusercontent.com/asterinas/linux_binary_cache/8a5b6fd/kernel/drivers/block/virtio_blk.ko" || {
-            echo "Failed to download the Linux kernel module."
-            exit 1
-        }
-    fi
+    # Array of files to download and their URLs
+    declare -A files=(
+        ["${LINUX_KERNEL}"]="https://raw.githubusercontent.com/asterinas/linux_binary_cache/8a5b6fd/vmlinuz-${LINUX_KERNEL_VERSION}"
+        ["${LINUX_DEPENDENCIES_DIR}/virtio_blk.ko"]="https://raw.githubusercontent.com/asterinas/linux_binary_cache/8a5b6fd/kernel/drivers/block/virtio_blk.ko"
+        ["${LINUX_DEPENDENCIES_DIR}/virtio_net.ko"]="https://raw.githubusercontent.com/asterinas/linux_binary_cache/8a5b6fd/kernel/drivers/net/virtio_net.ko"
+        ["${LINUX_DEPENDENCIES_DIR}/net_failover.ko"]="https://raw.githubusercontent.com/asterinas/linux_binary_cache/8a5b6fd/kernel/drivers/net/net_failover.ko"
+        ["${LINUX_DEPENDENCIES_DIR}/failover.ko"]="https://raw.githubusercontent.com/asterinas/linux_binary_cache/8a5b6fd/kernel/net/core/failover.ko"
+    )
+
+    # Download files if they don't exist
+    for file in "${!files[@]}"; do
+        if [ ! -f "$file" ]; then
+            echo "Downloading ${file##*/}..."
+            ${WGET_SCRIPT} "$file" "${files[$file]}" || {
+                echo "Failed to download ${file##*/}."
+                exit 1
+            }
+        fi
+    done
+
     # Copy the kernel modules to the initramfs directory
     if [ ! -f "${LINUX_MODULES_DIR}/drivers/block/virtio_blk.ko" ]; then
         mkdir -p "${LINUX_MODULES_DIR}/drivers/block"
-        cp ${LINUX_DEPENDENCIES_DIR}/virtio_blk.ko "${LINUX_MODULES_DIR}/drivers/block/virtio_blk.ko" 
+        mkdir -p "${LINUX_MODULES_DIR}/drivers/net"
+        mkdir -p "${LINUX_MODULES_DIR}/net/core"
+
+        declare -A modules=(
+            ["${LINUX_DEPENDENCIES_DIR}/virtio_blk.ko"]="${LINUX_MODULES_DIR}/drivers/block/virtio_blk.ko"
+            ["${LINUX_DEPENDENCIES_DIR}/virtio_net.ko"]="${LINUX_MODULES_DIR}/drivers/net/virtio_net.ko"
+            ["${LINUX_DEPENDENCIES_DIR}/net_failover.ko"]="${LINUX_MODULES_DIR}/drivers/net/net_failover.ko"
+            ["${LINUX_DEPENDENCIES_DIR}/failover.ko"]="${LINUX_MODULES_DIR}/net/core/failover.ko"
+        )
+
+        for src in "${!modules[@]}"; do
+            sudo cp "$src" "${modules[$src]}"
+        done
     fi
 }
 
@@ -73,38 +91,81 @@ parse_results() {
 # Run the benchmark on Linux and Asterinas
 run_benchmark() {
     local benchmark="$1"
-    local search_pattern="$2"
-    local result_index="$3"
+    local benchmark_type="$2"
+    local search_pattern="$3"
+    local result_index="$4"
 
     local linux_output="${BENCHMARK_DIR}/linux_output.txt"
     local aster_output="${BENCHMARK_DIR}/aster_output.txt"
     local result_template="${BENCHMARK_DIR}/${benchmark}/result_template.json"
     local benchmark_name=$(basename "${benchmark}")
+    local benchmark_root=$(dirname "${benchmark}")
     local result_file="result_${benchmark_name}.json"
     
     echo "Preparing libraries..."
     prepare_libs
 
-    local asterinas_cmd="make run BENCHMARK=${benchmark} ENABLE_KVM=1 RELEASE_LTO=1 2>&1 | tee ${aster_output}"
-    local linux_cmd="/usr/local/qemu/bin/qemu-system-x86_64 \
-        --no-reboot \
-        -smp 1 \
-        -m 8G \
-        -machine q35,kernel-irqchip=split \
-        -cpu Icelake-Server,-pcid,+x2apic \
-        --enable-kvm \
-        -kernel ${LINUX_KERNEL} \
-        -initrd ${BENCHMARK_DIR}/../build/initramfs.cpio.gz \
-        -drive if=none,format=raw,id=x0,file=${BENCHMARK_DIR}/../build/ext2.img \
-        -device virtio-blk-pci,bus=pcie.0,addr=0x6,drive=x0,serial=vext2,disable-legacy=on,disable-modern=off,queue-size=64,num-queues=1,config-wce=off,request-merging=off,write-cache=off,backend_defaults=off,discard=off,event_idx=off,indirect_desc=off,ioeventfd=off,queue_reset=off \
-        -append 'console=ttyS0 rdinit=/benchmark/common/bench_runner.sh ${benchmark} linux mitigations=off hugepages=0 transparent_hugepage=never' \
-        -nographic \
-        2>&1 | tee ${linux_output}"
+    case "${benchmark_type}" in
+        "guest")
+            local asterinas_cmd="make run BENCHMARK=${benchmark} ENABLE_KVM=1 RELEASE_LTO=1 2>&1 | tee ${aster_output}"
+            local linux_cmd="/usr/local/qemu/bin/qemu-system-x86_64 \
+                --no-reboot \
+                -smp 1 \
+                -m 8G \
+                -machine q35,kernel-irqchip=split \
+                -cpu Icelake-Server,-pcid,+x2apic \
+                --enable-kvm \
+                -kernel ${LINUX_KERNEL} \
+                -initrd ${BENCHMARK_DIR}/../build/initramfs.cpio.gz \
+                -drive if=none,format=raw,id=x0,file=${BENCHMARK_DIR}/../build/ext2.img \
+                -device virtio-blk-pci,bus=pcie.0,addr=0x6,drive=x0,serial=vext2,disable-legacy=on,disable-modern=off,queue-size=64,num-queues=1,config-wce=off,request-merging=off,write-cache=off,backend_defaults=off,discard=off,event_idx=off,indirect_desc=off,ioeventfd=off,queue_reset=off \
+                -append 'console=ttyS0 rdinit=/benchmark/common/bench_runner.sh ${benchmark} linux mitigations=off hugepages=0 transparent_hugepage=never' \
+                -netdev user,id=net01,hostfwd=tcp::5201-:5201 \
+                -device virtio-net-pci,netdev=net01,disable-legacy=on,disable-modern=off \
+                -nographic \
+                2>&1 | tee ${linux_output}"
+            echo "Running benchmark ${benchmark} on Asterinas..."
+            eval "$asterinas_cmd"
+            echo "Running benchmark ${benchmark} on Linux..."
+            eval "$linux_cmd"
+            ;;
+        "host-guest")
+            echo "Running benchmark ${benchmark} on host and guest..."
+            local asterinas_guest_cmd="make run BENCHMARK=${benchmark} ENABLE_KVM=1 RELEASE_LTO=1 2>&1 | tee ${aster_output}"
+            local linux_guest_cmd="/usr/local/qemu/bin/qemu-system-x86_64 \
+                --no-reboot \
+                -smp 1 \
+                -m 8G \
+                -machine q35,kernel-irqchip=split \
+                -cpu Icelake-Server,-pcid,+x2apic \
+                --enable-kvm \
+                -kernel ${LINUX_KERNEL} \
+                -initrd ${BENCHMARK_DIR}/../build/initramfs.cpio.gz \
+                -drive if=none,format=raw,id=x0,file=${BENCHMARK_DIR}/../build/ext2.img \
+                -device virtio-blk-pci,bus=pcie.0,addr=0x6,drive=x0,serial=vext2,disable-legacy=on,disable-modern=off,queue-size=64,num-queues=1,config-wce=off,request-merging=off,write-cache=off,backend_defaults=off,discard=off,event_idx=off,indirect_desc=off,ioeventfd=off,queue_reset=off \
+                -append 'console=ttyS0 rdinit=/benchmark/common/bench_runner.sh ${benchmark} linux mitigations=off hugepages=0 transparent_hugepage=never' \
+                -netdev user,id=net01,hostfwd=tcp::5201-:5201 \
+                -device virtio-net-pci,netdev=net01,disable-legacy=on,disable-modern=off \
+                -nographic \
+                2>&1"
+            bash "${BENCHMARK_DIR}/${benchmark_root}/${benchmark_root}_bench_runner.sh" \
+                "${BENCHMARK_DIR}/${benchmark}" \
+                "${asterinas_guest_cmd}" \
+                "${linux_guest_cmd}" \
+                "${aster_output}" \
+                "${linux_output}"
+            ;;
+        "guest-guest")
+            echo "Running benchmark ${benchmark} between guests..."
+            echo "TODO"
+            exit 1
+            ;;
+        *)
+            echo "Error: Unknown benchmark type '${benchmark_type}'" >&2
+            exit 1
+            ;;
+    esac
 
-    echo "Running benchmark ${benchmark} on Asterinas..."
-    eval "$asterinas_cmd"
-    echo "Running benchmark ${benchmark} on Linux..."
-    eval "$linux_cmd"
 
     echo "Parsing results..."
     parse_results "$benchmark" "$search_pattern" "$result_index" "$linux_output" "$aster_output" "$result_template" "$result_file"
@@ -117,6 +178,12 @@ run_benchmark() {
 # Main
 
 BENCHMARK="$1"
+if [ -z "$2" ] || [ "$2" = "null" ]; then
+    BENCHMARK_TYPE="guest"
+else
+    BENCHMARK_TYPE="$2"
+fi
+
 
 echo "Running benchmark ${BENCHMARK}..."
 pwd
@@ -128,6 +195,6 @@ fi
 search_pattern=$(jq -r '.search_pattern' "$BENCHMARK_DIR/$BENCHMARK/config.json")
 result_index=$(jq -r '.result_index' "$BENCHMARK_DIR/$BENCHMARK/config.json")
 
-run_benchmark "$BENCHMARK" "$search_pattern" "$result_index"
+run_benchmark "$BENCHMARK" "$BENCHMARK_TYPE" "$search_pattern" "$result_index"
 
 echo "Benchmark completed successfully."
