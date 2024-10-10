@@ -186,6 +186,10 @@ impl KernfsNode {
 }
 
 impl KernfsNode {
+    pub fn name(&self) -> String {
+        self.inner.read().name.clone()
+    }
+
     /// Get the parent of the current node.
     pub fn parent(&self) -> Option<Arc<KernfsNode>> {
         self.parent.as_ref().and_then(|p| p.upgrade())
@@ -202,7 +206,7 @@ impl KernfsNode {
     }
 
     /// Get the pseudo filesystem of the current node.
-    fn pseudo_fs(&self) -> Arc<dyn PseudoFileSystem> {
+    pub fn pseudo_fs(&self) -> Arc<dyn PseudoFileSystem> {
         self.inner.read().fs.upgrade().unwrap()
     }
 
@@ -227,12 +231,12 @@ impl KernfsNode {
     /// Return Ok(()) if the child is inserted successfully.
     /// Current node should be a directory.
     /// The child should not exist in the current node.
-    fn insert(&self, name: String, node: Arc<KernfsNode>) -> Result<()> {
+    fn insert(&self, name: String, node: Arc<dyn Inode>) -> Result<()> {
         self.inner.write().elem.insert(name, node)
     }
 
     /// Get the children of the current node.
-    fn get_children(&self) -> Option<BTreeMap<String, Arc<KernfsNode>>> {
+    fn get_children(&self) -> Option<BTreeMap<String, Arc<dyn Inode>>> {
         self.inner.read().elem.get_children()
     }
 }

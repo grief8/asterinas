@@ -15,6 +15,7 @@ pub mod pipe;
 pub mod procfs;
 pub mod ramfs;
 pub mod rootfs;
+pub mod sysfs;
 pub mod utils;
 
 use aster_block::BlockDevice;

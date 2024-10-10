@@ -22,7 +22,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct KernfsElemDir {
-    children: BTreeMap<String, Arc<KernfsNode>>,
+    children: BTreeMap<String, Arc<dyn Inode>>,
 }
 
 #[derive(Debug)]
@@ -40,13 +40,6 @@ impl KernfsElemSymlink {
     }
 }
 
-#[derive(Clone, Debug, Copy)]
-pub enum KernfsEvent {
-    Write(usize, usize),
-}
-
-impl Events for KernfsEvent {}
-
 pub trait DataProvider: Any + Sync + Send {
     fn read_at(&self, writer: &mut VmWriter, offset: usize) -> Result<usize>;
     fn write_at(&mut self, reader: &mut VmReader, offset: usize) -> Result<usize>;
@@ -54,15 +47,11 @@ pub trait DataProvider: Any + Sync + Send {
 
 pub struct KernfsElemAttr {
     data: Option<Box<dyn DataProvider>>,
-    subject: Subject<KernfsEvent>,
 }
 
 impl KernfsElemAttr {
     pub fn new() -> Self {
-        KernfsElemAttr {
-            data: None,
-            subject: Subject::new(),
-        }
+        KernfsElemAttr { data: None }
     }
 
     pub fn set_data(&mut self, data: Box<dyn DataProvider>) {
@@ -80,25 +69,13 @@ impl KernfsElemAttr {
     pub fn write_at(&mut self, offset: usize, buf: &mut VmReader) -> Result<usize> {
         if let Some(data) = &mut self.data {
             let new_size = data.write_at(buf, offset)?;
-            let event = KernfsEvent::Write(offset, buf.remain());
-            self.subject.notify_observers(&event);
             Ok(new_size)
         } else {
             Ok(0)
         }
     }
-
-    pub fn register_observer(&self, observer: Weak<dyn Observer<KernfsEvent>>) {
-        self.subject.register_observer(observer, ());
-    }
-
-    pub fn unregister_observer(
-        &self,
-        observer: &Weak<dyn Observer<KernfsEvent>>,
-    ) -> Option<Weak<dyn Observer<KernfsEvent>>> {
-        self.subject.unregister_observer(observer)
-    }
 }
+
 impl Default for KernfsElemAttr {
     fn default() -> Self {
         KernfsElemAttr::new()
@@ -195,7 +172,7 @@ impl KernfsElem {
         Ok(())
     }
 
-    pub fn insert(&mut self, name: String, node: Arc<KernfsNode>) -> Result<()> {
+    pub fn insert(&mut self, name: String, node: Arc<dyn Inode>) -> Result<()> {
         match self {
             KernfsElem::Dir(dir) => {
                 if dir.children.contains_key(&name)
@@ -209,7 +186,7 @@ impl KernfsElem {
         Ok(())
     }
 
-    pub fn lookup(&self, name: &str) -> Result<Arc<KernfsNode>> {
+    pub fn lookup(&self, name: &str) -> Result<Arc<dyn Inode>> {
         match self {
             KernfsElem::Dir(dir) => match dir.children.get(name) {
                 Some(node) => Ok(node.clone()),
@@ -219,7 +196,7 @@ impl KernfsElem {
         }
     }
 
-    pub fn get_children(&self) -> Option<BTreeMap<String, Arc<KernfsNode>>> {
+    pub fn get_children(&self) -> Option<BTreeMap<String, Arc<dyn Inode>>> {
         match self {
             KernfsElem::Dir(dir) => Some(dir.children.clone()),
             _ => None,
