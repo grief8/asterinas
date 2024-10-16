@@ -1,11 +1,3 @@
-OpenTest.AppendConcurrentWrite
-OpenTest.CanTruncateReadOnly
-OpenTest.CanTruncateWithStrangePermissions
-OpenTest.CanTruncateReadOnlyNoWritePermission_NoRandomSave
-OpenTest.CanTruncateWriteOnlyNoReadPermission_NoRandomSave
-OpenTest.FileNotDirectory
-OpenTest.MustCreateExisting
-OpenTest.NameTooLong
 OpenTest.Null
 OpenTest.OTrunc
 OpenTest.OTruncAndReadOnlyDir
