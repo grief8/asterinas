@@ -63,6 +63,7 @@ $(INITRAMFS)/lib/x86_64-linux-gnu: | $(VDSO_LIB)
 	@cp -L /lib/x86_64-linux-gnu/libsqlite3.so $@
 	@# required for VDSO
 	@cp -L $(VDSO_LIB) $@
+	@cp -L /opt/libseccomp.so.2 $@
 
 $(VDSO_LIB): | $(VDSO_DIR) $(BINARY_CACHE_DIR)/vdso64.so
 	@# TODO: use a custom compiled vdso.so file in the future.
@@ -101,6 +102,7 @@ $(INITRAMFS)/usr/local:
 	@mkdir -p $@
 	@cp -r /usr/local/nginx $@
 	@cp -r /usr/local/redis $@
+	@cp -r /opt/runc $@
 
 .PHONY: $(INITRAMFS)/test
 $(INITRAMFS)/test:
