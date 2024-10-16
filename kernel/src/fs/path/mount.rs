@@ -218,7 +218,7 @@ impl MountNode {
                 cwd.move_cwd(&current_mount_node, process);
             }
 
-            let children = current_mount_node.children.lock();
+            let children = current_mount_node.children.read();
             for child in children.values() {
                 stack.push(child.clone());
             }

@@ -8,7 +8,7 @@ use crate::{
     prelude::*,
     process::{
         namespaces::Namespaces,
-        posix_thread::{PosixThreadBuilder, PosixThreadExt},
+        posix_thread::{create_posix_task_from_executable, PosixThreadBuilder, PosixThreadExt},
         process_vm::ProcessVm,
         rlimit::ResourceLimits,
         signal::sig_disposition::SigDispositions,

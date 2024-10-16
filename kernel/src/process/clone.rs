@@ -12,7 +12,7 @@ use super::{
     posix_thread::{thread_table, PosixThread, PosixThreadBuilder, PosixThreadExt, ThreadName},
     process_table,
     process_vm::ProcessVm,
-    signal::sig_disposition::SigDispositions,
+    signal::{constants::SIGCHLD, sig_disposition::SigDispositions, sig_num::SigNum},
     Credentials, Namespaces, Process, ProcessBuilder,
 };
 use crate::{
