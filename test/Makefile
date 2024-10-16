@@ -108,6 +108,7 @@ $(INITRAMFS)/usr/local:
 .PHONY: $(INITRAMFS)/test
 $(INITRAMFS)/test:
 	@make --no-print-directory -C apps
+	@cp -r /opt/runc-hello $@
 
 $(INITRAMFS)/benchmark: | $(INITRAMFS)/benchmark/bin
 	@cp -rf $(CUR_DIR)/benchmark/* $@
