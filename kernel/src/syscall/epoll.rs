@@ -192,9 +192,9 @@ pub fn sys_epoll_pwait(
         epfd, events_addr, max_events, timeout, sigmask, sigset_size
     );
 
-    if sigset_size != 8 {
-        return_errno_with_message!(Errno::EINVAL, "sigset size is not equal to 8");
-    }
+    // if sigset_size != 8 {
+    //     return_errno_with_message!(Errno::EINVAL, "sigset size is not equal to 8");
+    // }
 
     let old_sig_mask_value = set_signal_mask(sigmask, ctx)?;
 
