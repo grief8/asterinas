@@ -80,6 +80,8 @@ impl PseudoFileSystem for SysFS {
         init_kernel(kernel_kobj)?;
         let devices_kobj = SysFS::create_kobject("devices", 0o755, root.clone())?;
         init_devices(devices_kobj)?;
+        let fs_kobj = SysFS::create_kobject("fs", 0o755, root.clone())?;
+        SysFS::create_kobject("cgroup", 0o755, fs_kobj.clone())?;
         Ok(())
     }
 

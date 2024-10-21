@@ -18,8 +18,6 @@ INITRAMFS_EMPTY_DIRS := \
 	$(INITRAMFS)/opt \
 	$(INITRAMFS)/proc \
 	$(INITRAMFS)/sys \
-	$(INITRAMFS)/sys/fs \
-	$(INITRAMFS)/sys/fs/cgroup \
 	$(INITRAMFS)/dev \
 	$(INITRAMFS)/ext2 \
 	$(INITRAMFS)/exfat
@@ -105,12 +103,12 @@ $(INITRAMFS)/usr/local:
 	@mkdir -p $@
 	@cp -r /usr/local/nginx $@
 	@cp -r /usr/local/redis $@
-	@cp -r /opt/runc $@
 
 .PHONY: $(INITRAMFS)/test
 $(INITRAMFS)/test:
 	@make --no-print-directory -C apps
 	@cp -r /opt/runc-hello $@
+	@cp -r /opt/runc $@
 
 $(INITRAMFS)/benchmark: | $(INITRAMFS)/benchmark/bin
 	@cp -rf $(CUR_DIR)/benchmark/* $@
