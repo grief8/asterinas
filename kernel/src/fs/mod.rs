@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
+pub mod cgroupfs;
 pub mod device;
 pub mod devpts;
 pub mod epoll;
@@ -17,7 +18,6 @@ pub mod ramfs;
 pub mod rootfs;
 pub mod sysfs;
 pub mod utils;
-pub mod cgroupfs;
 
 use aster_block::BlockDevice;
 use aster_virtio::device::block::device::BlockDevice as VirtIoBlockDevice;

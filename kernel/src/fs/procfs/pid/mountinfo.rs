@@ -42,88 +42,88 @@ impl FileOps for MountInfoFileOps {
         let mount_entries = vec![
             // 原有挂载信息
             (
-                1, 
-                0, 
-                "0:1", 
-                "/", 
-                "/", 
-                "rw,nosuid,nodev,noexec,relatime", 
-                "-", 
-                "sysfs", 
-                "sysfs", 
-                "rw,nosuid,nodev,noexec,relatime"
+                1,
+                0,
+                "0:1",
+                "/",
+                "/",
+                "rw,nosuid,nodev,noexec,relatime",
+                "-",
+                "sysfs",
+                "sysfs",
+                "rw,nosuid,nodev,noexec,relatime",
             ),
             (
-                2, 
-                1, 
-                "0:2", 
-                "/proc", 
-                "/proc", 
-                "rw,nosuid,nodev,noexec,relatime", 
-                "-", 
-                "proc", 
-                "proc", 
-                "rw,nosuid,nodev,noexec,relatime"
+                2,
+                1,
+                "0:2",
+                "/proc",
+                "/proc",
+                "rw,nosuid,nodev,noexec,relatime",
+                "-",
+                "proc",
+                "proc",
+                "rw,nosuid,nodev,noexec,relatime",
             ),
             (
-                3, 
-                1, 
-                "0:3", 
-                "/dev", 
-                "/dev", 
-                "rw,nosuid,noexec,relatime,size=262792576k,nr_inodes=65698144,mode=755", 
-                "-", 
-                "devtmpfs", 
-                "devtmpfs", 
-                "rw,nosuid,noexec,relatime"
+                3,
+                1,
+                "0:3",
+                "/dev",
+                "/dev",
+                "rw,nosuid,noexec,relatime,size=262792576k,nr_inodes=65698144,mode=755",
+                "-",
+                "devtmpfs",
+                "devtmpfs",
+                "rw,nosuid,noexec,relatime",
             ),
             (
-                4, 
-                1, 
-                "0:4", 
-                "/dev/pts", 
-                "/dev/pts", 
-                "rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000", 
-                "-", 
-                "devpts", 
-                "devpts", 
-                "rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000"
+                4,
+                1,
+                "0:4",
+                "/dev/pts",
+                "/dev/pts",
+                "rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000",
+                "-",
+                "devpts",
+                "devpts",
+                "rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000",
             ),
             (
-                5, 
-                1, 
-                "0:5", 
-                "/run", 
-                "/run", 
-                "rw,nosuid,nodev,noexec,relatime,size=52570144k,mode=755", 
-                "-", 
-                "tmpfs", 
-                "tmpfs", 
-                "rw,nosuid,nodev,noexec,relatime,size=52570144k,mode=755"
+                5,
+                1,
+                "0:5",
+                "/run",
+                "/run",
+                "rw,nosuid,nodev,noexec,relatime,size=52570144k,mode=755",
+                "-",
+                "tmpfs",
+                "tmpfs",
+                "rw,nosuid,nodev,noexec,relatime,size=52570144k,mode=755",
             ),
             (
-                6, 
-                1, 
-                "8:1", 
-                "/", 
-                "/", 
-                "rw,relatime", 
-                "-", 
-                "ext4", 
-                "/dev/mapper/ubuntu--vg-ubuntu--lv", 
-                "rw,relatime"
+                6,
+                1,
+                "8:1",
+                "/",
+                "/",
+                "rw,relatime",
+                "-",
+                "ext4",
+                "/dev/mapper/ubuntu--vg-ubuntu--lv",
+                "rw,relatime",
             ),
             (
-                7, 
-                1, 
-                "0:6", 
-                "/sys/kernel/security", 
-                "/sys/kernel/security", 
-                "rw,nosuid,nodev,noexec,relatime", 
-                "-", 
-                "securityfs", 
-                "securityfs", 
-                "rw,nosuid,nodev,noexec,relatime"
+                7,
+                1,
+                "0:6",
+                "/sys/kernel/security",
+                "/sys/kernel/security",
+                "rw,nosuid,nodev,noexec,relatime",
+                "-",
+                "securityfs",
+                "securityfs",
+                "rw,nosuid,nodev,noexec,relatime",
             ),
             // 添加的 cgroup 挂载信息
             (
@@ -136,7 +136,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "tmpfs",
                 "tmpfs",
-                "ro,mode=755"
+                "ro,mode=755",
             ),
             (
                 35,
@@ -148,7 +148,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "cgroup2",
                 "cgroup2",
-                "rw"
+                "rw",
             ),
             (
                 36,
@@ -160,7 +160,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "cgroup",
                 "cgroup",
-                "rw,xattr,name=systemd"
+                "rw,xattr,name=systemd",
             ),
             (
                 37,
@@ -172,7 +172,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "pstore",
                 "pstore",
-                "rw"
+                "rw",
             ),
             (
                 38,
@@ -184,7 +184,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "efivarfs",
                 "efivarfs",
-                "rw"
+                "rw",
             ),
             (
                 39,
@@ -196,7 +196,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "bpf",
                 "none",
-                "rw,mode=700"
+                "rw,mode=700",
             ),
             (
                 40,
@@ -208,7 +208,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "cgroup",
                 "cgroup",
-                "rw,devices"
+                "rw,devices",
             ),
             (
                 41,
@@ -220,7 +220,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "cgroup",
                 "cgroup",
-                "rw,rdma"
+                "rw,rdma",
             ),
             (
                 42,
@@ -232,7 +232,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "cgroup",
                 "cgroup",
-                "rw,cpu,cpuacct"
+                "rw,cpu,cpuacct",
             ),
             (
                 43,
@@ -244,7 +244,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "cgroup",
                 "cgroup",
-                "rw,cpuset,clone_children"
+                "rw,cpuset,clone_children",
             ),
             (
                 44,
@@ -256,7 +256,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "cgroup",
                 "cgroup",
-                "rw,blkio"
+                "rw,blkio",
             ),
             (
                 45,
@@ -268,7 +268,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "cgroup",
                 "cgroup",
-                "rw,perf_event"
+                "rw,perf_event",
             ),
             (
                 46,
@@ -280,7 +280,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "cgroup",
                 "cgroup",
-                "rw,hugetlb"
+                "rw,hugetlb",
             ),
             (
                 47,
@@ -292,7 +292,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "cgroup",
                 "cgroup",
-                "rw,memory"
+                "rw,memory",
             ),
             (
                 48,
@@ -304,7 +304,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "cgroup",
                 "cgroup",
-                "rw,pids"
+                "rw,pids",
             ),
             (
                 49,
@@ -316,7 +316,7 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "cgroup",
                 "cgroup",
-                "rw,net_cls,net_prio"
+                "rw,net_cls,net_prio",
             ),
             (
                 50,
@@ -328,27 +328,29 @@ impl FileOps for MountInfoFileOps {
                 "-",
                 "cgroup",
                 "cgroup",
-                "rw,freezer"
+                "rw,freezer",
             ),
         ];
 
-        let mountinfo_output: String = mount_entries.iter().map(|entry| {
-            format!(
-                "{} {} {} {} {} {} {} {} {} {}\n",
-                entry.0, // Mount ID
-                entry.1, // Parent ID
-                entry.2, // Major:Minor
-                entry.3, // Root
-                entry.4, // Mount Point
-                entry.5, // Mount Options
-                entry.6, // Optional Fields
-                entry.7, // FSType
-                entry.8, // Source
-                entry.9  // Super Options
-            )
-        }).collect();
+        let mountinfo_output: String = mount_entries
+            .iter()
+            .map(|entry| {
+                format!(
+                    "{} {} {} {} {} {} {} {} {} {}\n",
+                    entry.0, // Mount ID
+                    entry.1, // Parent ID
+                    entry.2, // Major:Minor
+                    entry.3, // Root
+                    entry.4, // Mount Point
+                    entry.5, // Mount Options
+                    entry.6, // Optional Fields
+                    entry.7, // FSType
+                    entry.8, // Source
+                    entry.9  // Super Options
+                )
+            })
+            .collect();
 
         Ok(mountinfo_output.into_bytes())
     }
 }
-

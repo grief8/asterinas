@@ -27,8 +27,7 @@ impl CgroupFileOps {
 
 impl FileOps for CgroupFileOps {
     fn data(&self) -> Result<Vec<u8>> {
-        Ok(
-            "12:freezer:/user/root/0\n\
+        Ok("12:freezer:/user/root/0\n\
             11:net_cls,net_prio:/\n\
             10:pids:/user.slice/user-1004.slice/session-35026.scope\n\
             9:memory:/user.slice/user-1004.slice/session-35026.scope\n\
@@ -41,9 +40,7 @@ impl FileOps for CgroupFileOps {
             2:devices:/user.slice\n\
             1:name=systemd:/user.slice/user-1004.slice/session-35026.scope\n\
             0::/user.slice/user-1004.slice/session-35026.scope\n"
-                .as_bytes()
-                .to_vec(),
-        )
+            .as_bytes()
+            .to_vec())
     }
 }
-

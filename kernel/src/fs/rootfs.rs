@@ -6,15 +6,18 @@ use libflate::gzip::Decoder as GZipDecoder;
 use spin::Once;
 
 use super::{
+    cgroupfs::CgroupFS,
     fs_resolver::{FsPath, FsResolver},
     kernfs::PseudoFileSystem,
     path::MountNode,
     procfs::ProcFS,
     ramfs::RamFS,
-    cgroupfs::ToyCgroupFS,
     utils::{FileSystem, InodeMode, InodeType},
 };
-use crate::{fs::{cgroupfs, sysfs::SysFS}, prelude::*};
+use crate::{
+    fs::{cgroupfs, sysfs::SysFS},
+    prelude::*,
+};
 
 /// Unpack and prepare the rootfs from the initramfs CPIO buffer.
 pub fn init(initramfs_buf: &[u8]) -> Result<()> {
@@ -90,7 +93,7 @@ pub fn init(initramfs_buf: &[u8]) -> Result<()> {
     sysfs.init()?;
     // Mount CgroupFS
     let cgroup_dentry = fs.lookup(&FsPath::try_from("/sys/fs/cgroup")?)?;
-    let cgroupfs: Arc<ToyCgroupFS> = ToyCgroupFS::new();
+    let cgroupfs: Arc<CgroupFS> = CgroupFS::new();
     cgroup_dentry.mount(cgroupfs.clone())?;
     cgroupfs.init()?;
 
