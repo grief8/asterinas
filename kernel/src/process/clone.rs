@@ -425,8 +425,12 @@ fn clone_cpu_context(
     // The return value of child thread is zero
     child_context.set_syscall_ret(0);
 
+    let mut new_sp = new_sp;
     if clone_flags.contains(CloneFlags::CLONE_VM) {
         // if parent and child shares the same address space, a new stack must be specified.
+        if clone_flags.contains(CloneFlags::CLONE_VFORK) {
+            new_sp = parent_context.stack_pointer() as u64;
+        }
         debug_assert!(new_sp != 0);
     }
     if new_sp != 0 {
