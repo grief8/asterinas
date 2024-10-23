@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
-
-/// A pseudo filesystem that is working as cgroupfs.
-/// It takes effect if you mount it to `/sys/fs/cgroup`.
-use core::{sync::atomic::{AtomicU64, Ordering}, time::Duration};
+use alloc::sync::{Arc, Weak};
 use inherit_methods_macro::inherit_methods;
+/// A pseudo filesystem that functions as cgroupfs.
+/// It takes effect if you mount it to `/sys/fs/cgroup`.
+use core::{
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
+};
+
 use aster_rights::Full;
 use ostd::mm::VmWriter;
 
@@ -13,17 +17,17 @@ use crate::{
         kernfs::{DataProvider, KernfsNode, KernfsNodeFlag, PseudoFileSystem},
         utils::{FileSystem, FsFlags, Inode, SuperBlock, NAME_MAX},
     },
-    prelude::*, process::{Gid, Uid}, vm::vmo::Vmo,
+    prelude::*,
+    process::{Gid, Uid},
+    vm::vmo::Vmo,
 };
 
-/// CgroupFS filesystem.
-/// Magic number.
+/// Constants
 const CGROUPFS_MAGIC: u64 = 0x9fa1;
-/// Root Inode ID.
 const CGROUPFS_ROOT_INO: u64 = 1;
-/// Block size.
 const BLOCK_SIZE: usize = 1024;
 
+/// CgroupFS filesystem.
 pub struct CgroupFS {
     sb: SuperBlock,
     root: Arc<dyn Inode>,
@@ -40,6 +44,142 @@ impl CgroupFS {
             this: weak_fs.clone(),
         })
     }
+
+    pub fn get_cgroup_config() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)> {
+        // Define all subsystems and their attributes with initial values
+        vec![
+            (
+                "cpu",
+                vec![
+                    ("cgroup.clone_children", "0"),
+                    ("cpuacct.stat", "user 0\nsystem 0"),
+                    ("cpuacct.usage", "0"),
+                    ("cpuacct.usage_percpu", "0"),
+                    ("cpuacct.usage_percpu_sys", "0"),
+                    ("cpuacct.usage_percpu_user", "0"),
+                    ("cpu.cfs_period_us", "100000"),
+                    ("cpu.cfs_quota_us", "-1"),
+                    ("cpu.cfs_burst_us", "0"),
+                    ("cpu.shares", "1024"),
+                    ("cpu.stat", "nr_periods 0\nnr_throttled 0\nthrottled_time 0"),
+                    ("notify_on_release", "0"),
+                    ("tasks", ""),
+                ],
+            ),
+            (
+                "memory",
+                vec![
+                    ("memory.usage_in_bytes", "0"),
+                    ("memory.limit_in_bytes", "9223372036854771712"),
+                    ("memory.failcnt", "0"),
+                    ("memory.max_usage_in_bytes", "0"),
+                    ("memory.soft_limit_in_bytes", "9223372036854771712"),
+                    ("memory.kmem.usage_in_bytes", "0"),
+                    ("memory.kmem.limit_in_bytes", "9223372036854771712"),
+                    ("memory.kmem.failcnt", "0"),
+                    ("memory.kmem.max_usage_in_bytes", "0"),
+                    ("memory.kmem.tcp.usage_in_bytes", "0"),
+                    ("memory.kmem.tcp.limit_in_bytes", "9223372036854771712"),
+                    ("memory.kmem.tcp.failcnt", "0"),
+                    ("memory.kmem.tcp.max_usage_in_bytes", "0"),
+                ],
+            ),
+            (
+                "cpuset",
+                vec![
+                    ("cpuset.cpus", "0-3"),
+                    ("cpuset.mems", "0"),
+                    ("cpuset.memory_migrate", "0"),
+                    ("cpuset.cpu_exclusive", "0"),
+                    ("cpuset.mem_exclusive", "0"),
+                    ("cpuset.mem_hardwall", "0"),
+                    ("cpuset.memory_pressure", "0"),
+                    ("cpuset.memory_spread_page", "0"),
+                    ("cpuset.memory_spread_slab", "0"),
+                    ("cpuset.sched_load_balance", "1"),
+                    ("cpuset.sched_relax_domain_level", "-1"),
+                ],
+            ),
+            (
+                "devices",
+                vec![
+                    ("devices.allow", ""),
+                    ("devices.deny", ""),
+                    ("devices.list", ""),
+                    ("devices.log_level", ""),
+                    ("devices.max_count", ""),
+                    ("devices.priority", ""),
+                ],
+            ),
+            (
+                "freezer",
+                vec![
+                    ("freezer.state", "THAWED"),
+                    ("freezer.self_freezing", "0"),
+                    ("freezer.parent_freezing", "0"),
+                ],
+            ),
+            (
+                "hugetlb",
+                vec![
+                    ("hugetlb.max", "0"),
+                    ("hugetlb.current", "0"),
+                    ("hugetlb.failcnt", "0"),
+                    ("hugetlb.limit_in_bytes", "0"),
+                    ("hugetlb.usage_in_bytes", "0"),
+                ],
+            ),
+            (
+                "net_cls",
+                vec![
+                    ("net_cls.classid", "0"),
+                    ("net_cls.cgroups", "0"),
+                    ("net_cls.mark", "0"),
+                ],
+            ),
+            (
+                "perf_event",
+                vec![
+                    ("perf_event.enable", "0"),
+                    ("perf_event.events", "0"),
+                    ("perf_event.inherit", "0"),
+                    ("perf_event.read", "0"),
+                    ("perf_event.stat", "0"),
+                ],
+            ),
+            ("pids", vec![("pids.max", "max"), ("pids.current", "0")]),
+            (
+                "systemd",
+                vec![
+                    ("cgroup.clone_children", "0"),
+                    ("cgroup.procs", ""),
+                    ("notify_on_release", "0"),
+                    ("tasks", ""),
+                ],
+            ),
+            ("rdma", vec![("rdma.max", "0"), ("rdma.current", "0")]),
+            (
+                "blkio",
+                vec![
+                    ("blkio.reset_stats", "0"),
+                    ("blkio.sectors", "0"),
+                    ("blkio.io_service_bytes", "0"),
+                    ("blkio.io_serviced", "0"),
+                    ("blkio.io_service_time", "0"),
+                    ("blkio.io_wait_time", "0"),
+                    ("blkio.io_merged", "0"),
+                    ("blkio.time", "0"),
+                    ("blkio.delay", "0"),
+                    ("blkio.throttle.io_service_bytes", "0"),
+                    ("blkio.throttle.io_serviced", "0"),
+                    ("blkio.throttle.read_bps_device", "0"),
+                    ("blkio.throttle.write_bps_device", "0"),
+                    ("blkio.throttle.read_iops_device", "0"),
+                    ("blkio.throttle.write_iops_device", "0"),
+                ],
+            ),
+        ]
+    }
 }
 
 impl PseudoFileSystem for CgroupFS {
@@ -51,32 +191,26 @@ impl PseudoFileSystem for CgroupFS {
     fn init(&self) -> Result<()> {
         let root_inode = self.root_inode();
         let root = root_inode
-            .downcast_ref::<KernfsNode>()
+            .downcast_ref::<CgroupSubsystem>()
             .ok_or_else(|| Error::new(Errno::EINVAL))?;
 
-        let subsystems = vec![
-            ("cpu", "cpuacct", "cpu,cpuacct"),
-            ("memory", "", ""),
-            ("cpuset", "", ""),
-            ("devices", "", ""),
-            ("freezer", "", ""),
-            ("net_cls", "net_prio", "net_cls,net_prio"),
-            ("blkio", "", ""),
-            ("perf_event", "", ""),
-            ("hugetlb", "", ""),
-            ("pids", "", ""),
-            ("rdma", "", ""),
-            ("systemd", "", ""),
-        ];
-
-        for (name, symlink1, symlink2) in subsystems {
-            let subsystem = CgroupSubsystem::new(name, root.this())?;
-            if !symlink1.is_empty() {
-                KernfsNode::new_symlink(symlink1, KernfsNodeFlag::empty(), subsystem.this_weak(), subsystem.this_weak())?;
+        for (subsys_name, attributes) in CgroupFS::get_cgroup_config() {
+            let subsystem_node = CgroupSubsystem::new(subsys_name, root.this(), &attributes)?;
+            // Optionally, create symlinks if needed
+            if subsys_name == "cpu" {
+                KernfsNode::new_symlink("cpuacct", KernfsNodeFlag::empty(),
+                    subsystem_node.this_weak_node(), root.this_weak_node())?;
+                KernfsNode::new_symlink("cpu,cpuacct", KernfsNodeFlag::empty(),
+                    subsystem_node.this_weak_node(), root.this_weak_node())?;
             }
-            if !symlink2.is_empty() {
-                KernfsNode::new_symlink(symlink2, KernfsNodeFlag::empty(), subsystem.this_weak(), subsystem.this_weak())?;
+            if subsys_name == "net_cls" {
+                KernfsNode::new_symlink("net_prio", KernfsNodeFlag::empty(),
+                    subsystem_node.this_weak_node(), root.this_weak_node())?;
+                KernfsNode::new_symlink("net_cls,net_prio", KernfsNodeFlag::empty(),
+                    subsystem_node.this_weak_node(), root.this_weak_node())?;
             }
+            // FIXME: DO NOT create it here, it should be created by the user
+            CgroupSubsystem::new("mycontainer", subsystem_node.this(), &attributes)?;
         }
 
         Ok(())
@@ -111,25 +245,60 @@ pub struct CgroupfsRoot;
 
 impl CgroupfsRoot {
     pub fn new_inode(fs: Weak<CgroupFS>) -> Arc<dyn Inode> {
-        KernfsNode::new_root("cgroupfs", fs, CGROUPFS_ROOT_INO, BLOCK_SIZE)
+        CgroupSubsystem::new_root("cgroupfs", fs)
     }
 }
 
+/// Generic Cgroup Subsystem
+#[derive(Clone)]
 pub struct CgroupSubsystem(Arc<KernfsNode>);
 
 impl CgroupSubsystem {
-    pub fn new(name: &str, parent: Arc<KernfsNode>) -> Result<Arc<Self>> {
-        let node = KernfsNode::new_dir(name, None, KernfsNodeFlag::empty(), parent.this_weak())?;
-        
+    /// Creates a new subsystem with the given name and attributes.
+    pub fn new(
+        name: &str,
+        parent: Arc<CgroupSubsystem>,
+        attributes: &[(&str, &str)],
+    ) -> Result<Arc<Self>> {
+        let node = KernfsNode::new_dir(name, None, KernfsNodeFlag::empty(), parent.this_weak_node())?;
+
+        // Create attribute nodes
+        for (attr_name, initial_value) in attributes {
+            let attr_node = KernfsNode::new_attr(
+                attr_name,
+                Some(InodeMode::from_bits_truncate(0o755)),
+                KernfsNodeFlag::empty(),
+                node.this_weak(),
+            )?;
+            attr_node.set_data(Box::new(CgroupSubsystemData::new(initial_value)))?;
+        }
+        println!("[kernel] cgroup subsystem {} is ready", name);
+
         Ok(Arc::new(Self(node)))
     }
 
-    pub fn this_weak(&self) -> Weak<KernfsNode> {
-        Arc::downgrade(&self.0)
+    pub fn new_root(name: &str, fs: Weak<CgroupFS>) -> Arc<Self> {
+        let node = KernfsNode::new_root(name, fs, CGROUPFS_ROOT_INO, BLOCK_SIZE);
+        Arc::new(Self(node))
+    }
+
+    pub fn this_weak_node(&self) -> Weak<KernfsNode> {
+        self.0.this_weak()
+    }
+
+    pub fn this_weak(&self) -> Weak<CgroupSubsystem> {
+       Arc::downgrade(&self.this())
+    }
+
+    pub fn this_node(&self) -> Arc<KernfsNode> {
+        self.0.clone()
+    }
+
+    pub fn this(&self) -> Arc<Self> {
+        Arc::new(self.clone())
     }
 }
 
-/// Inherit `Inode` trait from KernfsNode for `CgroupSubsystem`.
 #[inherit_methods(from = "self.0")]
 impl Inode for CgroupSubsystem {
     fn size(&self) -> usize;
@@ -159,7 +328,7 @@ impl Inode for CgroupSubsystem {
     fn ioctl(&self, _cmd: IoctlCmd, _arg: usize) -> Result<i32>;
     fn is_dentry_cacheable(&self) -> bool;
     fn page_cache(&self) -> Option<Vmo<Full>>;
-    fn lookup(&self, _name: &str) -> Result<Arc<dyn Inode>>;
+    
     fn link(&self, _inode: &Arc<dyn Inode>, _name: &str) -> Result<()>;
     fn unlink(&self, _name: &str) -> Result<()>;
     fn as_device(&self) -> Option<Arc<dyn super::device::Device>>;
@@ -187,13 +356,9 @@ impl Inode for CgroupSubsystem {
         type_: super::utils::MknodType,
     ) -> Result<Arc<dyn Inode>>;
 
+    fn lookup(&self, _name: &str) -> Result<Arc<dyn Inode>>;
     fn create(&self, name: &str, type_: InodeType, mode: InodeMode) -> Result<Arc<dyn Inode>> {
-        // 1. Check if the inode is a directory.
-        // 2. Check if the name already exists.
-        // 3. Create a new inode.
-        // 4. Take the parent's init function to create the components of the new inode.
-        // 5. Return the new inode.
-
+        println!("CgroupSubsystem::create is called {}", name);
         if self.0.type_() != InodeType::Dir {
             return_errno!(Errno::ENOTDIR);
         }
@@ -202,928 +367,68 @@ impl Inode for CgroupSubsystem {
         }
         let new_node = match type_ {
             InodeType::Dir => {
-                KernfsNode::new_dir(name, Some(mode), KernfsNodeFlag::empty(), self.this_weak())
+                let config = CgroupFS::get_cgroup_config();
+                let attributes = config
+                    .iter()
+                    .find(|(subsys_name, _)| *subsys_name == self.0.name());
+                CgroupSubsystem::new(name, self.this(), &attributes.unwrap().1)?
             }
             _ => return_errno!(Errno::EINVAL),
-        }?;
+        };
         Ok(new_node)
-        
-    } 
+    }
 }
 
+/// Data provider for cgroup subsystem attributes.
 struct CgroupSubsystemData {
     data: Vec<u8>,
 }
 
 impl CgroupSubsystemData {
     pub fn new(data: &str) -> Self {
-        if !data.ends_with('\n') {
-            let mut new_data = data.to_string();
-            new_data.push('\n');
-            Self {
-                data: new_data.as_bytes().to_vec(),
-            }
-        } else {
-            Self {
-                data: data.as_bytes().to_vec(),
-            }
+        let mut data_vec = data.to_string();
+        if !data_vec.ends_with('\n') {
+            data_vec.push('\n');
+        }
+        Self {
+            data: data_vec.into_bytes(),
         }
     }
 }
 
 impl DataProvider for CgroupSubsystemData {
     fn read_at(&self, writer: &mut VmWriter, offset: usize) -> Result<usize> {
-        let start = self.data.len().min(offset);
-        let end = self.data.len().min(offset + writer.avail());
+        let start = if offset < self.data.len() {
+            offset
+        } else {
+            self.data.len()
+        };
+        let end = if offset + writer.avail() > self.data.len() {
+            self.data.len()
+        } else {
+            offset + writer.avail()
+        };
         let len = end - start;
-        writer.write_fallible(&mut (&self.data[start..end]).into())?;
+        if len > 0 {
+            writer.write_fallible(&mut (&self.data[start..end]).into())?;
+        }
         Ok(len)
     }
 
     fn write_at(&mut self, reader: &mut VmReader, offset: usize) -> Result<usize> {
         let write_len = reader.remain();
         let end = offset + write_len;
-
         if self.data.len() < end {
             self.data.resize(end, 0);
         }
-
-        let mut writer = VmWriter::from(&mut self.data[offset..end]);
-        let value = reader.read_fallible(&mut writer)?;
-        if value != write_len {
-            return_errno!(Errno::EINVAL);
+        {
+            let slice = &mut self.data[offset..end];
+            let mut writer = VmWriter::from(slice);
+            let actual_written = reader.read_fallible(&mut writer)?;
+            if actual_written != write_len {
+                return_errno!(Errno::EINVAL);
+            }
         }
-
         Ok(write_len)
-    }
-}
-
-struct CpuSubsystem;
-
-impl CpuSubsystem {
-    pub fn new(name: &str, parent: Arc<KernfsNode>) -> Result<Arc<KernfsNode>> {
-        let mode = InodeMode::from_bits_truncate(0o555);
-        let node = KernfsNode::new_dir(
-            name,
-            Some(mode),
-            KernfsNodeFlag::empty(),
-            parent.this_weak(),
-        )?;
-
-        let cchild = KernfsNode::new_attr(
-            "cgroup.clone_children",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cchild.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpuacct_stat = KernfsNode::new_attr(
-            "cpuacct.stat",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuacct_stat.set_data(Box::new(CgroupSubsystemData::new("user 0\nsystem 0")))?;
-
-        let cpuacct_usage = KernfsNode::new_attr(
-            "cpuacct.usage",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuacct_usage.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpuacct_usage_percpu = KernfsNode::new_attr(
-            "cpuacct.usage_percpu",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuacct_usage_percpu.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpuacct_usage_percpu_sys = KernfsNode::new_attr(
-            "cpuacct.usage_percpu_sys",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuacct_usage_percpu_sys.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpuacct_usage_percpu_user = KernfsNode::new_attr(
-            "cpuacct.usage_percpu_user",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuacct_usage_percpu_user.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpuacct_usage_sys = KernfsNode::new_attr(
-            "cpuacct.usage_sys",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuacct_usage_sys.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpuacct_usage_user = KernfsNode::new_attr(
-            "cpuacct.usage_user",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuacct_usage_user.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpu_cfs_period_us = KernfsNode::new_attr(
-            "cpu.cfs_period_us",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpu_cfs_period_us.set_data(Box::new(CgroupSubsystemData::new("100000")))?;
-
-        let cpu_cfs_quota_us = KernfsNode::new_attr(
-            "cpu.cfs_quota_us",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpu_cfs_quota_us.set_data(Box::new(CgroupSubsystemData::new("-1")))?;
-
-        let cpu_cfs_burst_us = KernfsNode::new_attr(
-            "cpu.cfs_burst_us",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpu_cfs_burst_us.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpu_shares = KernfsNode::new_attr(
-            "cpu.shares",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpu_shares.set_data(Box::new(CgroupSubsystemData::new("1024")))?;
-
-        let cpu_stat = KernfsNode::new_attr(
-            "cpu.stat",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpu_stat.set_data(Box::new(CgroupSubsystemData::new(
-            "nr_periods 0\nnr_throttled 0\nthrottled_time 0",
-        )))?;
-
-        let notify_on_release = KernfsNode::new_attr(
-            "notify_on_release",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        notify_on_release.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let tasks = KernfsNode::new_attr(
-            "tasks",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        tasks.set_data(Box::new(CgroupSubsystemData::new("")))?;
-
-        Ok(node)
-    }
-}
-
-struct MemorySubsystem;
-
-impl MemorySubsystem {
-    pub fn new(name: &str, parent: Arc<KernfsNode>) -> Result<Arc<KernfsNode>> {
-        let mode = InodeMode::from_bits_truncate(0o555);
-        let node = KernfsNode::new_dir(
-            name,
-            Some(mode),
-            KernfsNodeFlag::empty(),
-            parent.this_weak(),
-        )?;
-
-        let memory_usage_in_bytes = KernfsNode::new_attr(
-            "memory.usage_in_bytes",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        memory_usage_in_bytes.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let memory_limit_in_bytes = KernfsNode::new_attr(
-            "memory.limit_in_bytes",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        memory_limit_in_bytes
-            .set_data(Box::new(CgroupSubsystemData::new("9223372036854771712")))?;
-
-        let memory_failcnt = KernfsNode::new_attr(
-            "memory.failcnt",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        memory_failcnt.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let memory_max_usage_in_bytes = KernfsNode::new_attr(
-            "memory.max_usage_in_bytes",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        memory_max_usage_in_bytes.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let memory_soft_limit_in_bytes = KernfsNode::new_attr(
-            "memory.soft_limit_in_bytes",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        memory_soft_limit_in_bytes
-            .set_data(Box::new(CgroupSubsystemData::new("9223372036854771712")))?;
-
-        let memory_kmem_usage_in_bytes = KernfsNode::new_attr(
-            "memory.kmem.usage_in_bytes",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        memory_kmem_usage_in_bytes.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let memory_kmem_limit_in_bytes = KernfsNode::new_attr(
-            "memory.kmem.limit_in_bytes",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        memory_kmem_limit_in_bytes
-            .set_data(Box::new(CgroupSubsystemData::new("9223372036854771712")))?;
-
-        let memory_kmem_failcnt = KernfsNode::new_attr(
-            "memory.kmem.failcnt",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        memory_kmem_failcnt.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let memory_kmem_max_usage_in_bytes = KernfsNode::new_attr(
-            "memory.kmem.max_usage_in_bytes",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        memory_kmem_max_usage_in_bytes.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let memory_kmem_tcp_usage_in_bytes = KernfsNode::new_attr(
-            "memory.kmem.tcp.usage_in_bytes",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        memory_kmem_tcp_usage_in_bytes.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let memory_kmem_tcp_limit_in_bytes = KernfsNode::new_attr(
-            "memory.kmem.tcp.limit_in_bytes",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        memory_kmem_tcp_limit_in_bytes
-            .set_data(Box::new(CgroupSubsystemData::new("9223372036854771712")))?;
-
-        let memory_kmem_tcp_failcnt = KernfsNode::new_attr(
-            "memory.kmem.tcp.failcnt",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        memory_kmem_tcp_failcnt.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let memory_kmem_tcp_max_usage_in_bytes = KernfsNode::new_attr(
-            "memory.kmem.tcp.max_usage_in_bytes",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        memory_kmem_tcp_max_usage_in_bytes.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        Ok(node)
-    }
-}
-
-struct CpusetSubsystem;
-
-impl CpusetSubsystem {
-    pub fn new(name: &str, parent: Arc<KernfsNode>) -> Result<Arc<KernfsNode>> {
-        let mode = InodeMode::from_bits_truncate(0o555);
-        let node = KernfsNode::new_dir(
-            name,
-            Some(mode),
-            KernfsNodeFlag::empty(),
-            parent.this_weak(),
-        )?;
-
-        let cpuset_cpus = KernfsNode::new_attr(
-            "cpuset.cpus",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuset_cpus.set_data(Box::new(CgroupSubsystemData::new("0-3")))?;
-
-        let cpuset_mems = KernfsNode::new_attr(
-            "cpuset.mems",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuset_mems.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpuset_memory_migrate = KernfsNode::new_attr(
-            "cpuset.memory_migrate",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuset_memory_migrate.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpuset_cpu_exclusive = KernfsNode::new_attr(
-            "cpuset.cpu_exclusive",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuset_cpu_exclusive.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpuset_mem_exclusive = KernfsNode::new_attr(
-            "cpuset.mem_exclusive",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuset_mem_exclusive.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpuset_mem_hardwall = KernfsNode::new_attr(
-            "cpuset.mem_hardwall",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuset_mem_hardwall.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpuset_memory_pressure = KernfsNode::new_attr(
-            "cpuset.memory_pressure",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuset_memory_pressure.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpuset_memory_spread_page = KernfsNode::new_attr(
-            "cpuset.memory_spread_page",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuset_memory_spread_page.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpuset_memory_spread_slab = KernfsNode::new_attr(
-            "cpuset.memory_spread_slab",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuset_memory_spread_slab.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cpuset_sched_load_balance = KernfsNode::new_attr(
-            "cpuset.sched_load_balance",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuset_sched_load_balance.set_data(Box::new(CgroupSubsystemData::new("1")))?;
-
-        let cpuset_sched_relax_domain_level = KernfsNode::new_attr(
-            "cpuset.sched_relax_domain_level",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cpuset_sched_relax_domain_level.set_data(Box::new(CgroupSubsystemData::new("-1")))?;
-
-        Ok(node)
-    }
-}
-
-struct DevicesSubsystem;
-
-impl DevicesSubsystem {
-    pub fn new(name: &str, parent: Arc<KernfsNode>) -> Result<Arc<KernfsNode>> {
-        let mode = InodeMode::from_bits_truncate(0o555);
-        let node = KernfsNode::new_dir(
-            name,
-            Some(mode),
-            KernfsNodeFlag::empty(),
-            parent.this_weak(),
-        )?;
-
-        let devices_allow = KernfsNode::new_attr(
-            "devices.allow",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        devices_allow.set_data(Box::new(CgroupSubsystemData::new("")))?;
-
-        let devices_deny = KernfsNode::new_attr(
-            "devices.deny",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        devices_deny.set_data(Box::new(CgroupSubsystemData::new("")))?;
-
-        let devices_list = KernfsNode::new_attr(
-            "devices.list",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        devices_list.set_data(Box::new(CgroupSubsystemData::new("")))?;
-
-        let devices_log_level = KernfsNode::new_attr(
-            "devices.log_level",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        devices_log_level.set_data(Box::new(CgroupSubsystemData::new("")))?;
-
-        let devices_max_count = KernfsNode::new_attr(
-            "devices.max_count",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        devices_max_count.set_data(Box::new(CgroupSubsystemData::new("")))?;
-
-        let devices_priority = KernfsNode::new_attr(
-            "devices.priority",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        devices_priority.set_data(Box::new(CgroupSubsystemData::new("")))?;
-
-        Ok(node)
-    }
-}
-
-struct FreezerSubsystem;
-
-impl FreezerSubsystem {
-    pub fn new(name: &str, parent: Arc<KernfsNode>) -> Result<Arc<KernfsNode>> {
-        let mode = InodeMode::from_bits_truncate(0o555);
-        let node = KernfsNode::new_dir(
-            name,
-            Some(mode),
-            KernfsNodeFlag::empty(),
-            parent.this_weak(),
-        )?;
-
-        let freezer_state = KernfsNode::new_attr(
-            "freezer.state",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        freezer_state.set_data(Box::new(CgroupSubsystemData::new("THAWED")))?;
-
-        let freezer_self_freezing = KernfsNode::new_attr(
-            "freezer.self_freezing",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        freezer_self_freezing.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let freezer_parent_freezing = KernfsNode::new_attr(
-            "freezer.parent_freezing",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        freezer_parent_freezing.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        Ok(node)
-    }
-}
-
-struct HugetlbSubsystem;
-
-impl HugetlbSubsystem {
-    pub fn new(name: &str, parent: Arc<KernfsNode>) -> Result<Arc<KernfsNode>> {
-        let mode = InodeMode::from_bits_truncate(0o555);
-        let node = KernfsNode::new_dir(
-            name,
-            Some(mode),
-            KernfsNodeFlag::empty(),
-            parent.this_weak(),
-        )?;
-
-        let hugetlb_max = KernfsNode::new_attr(
-            "hugetlb.max",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        hugetlb_max.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let hugetlb_current = KernfsNode::new_attr(
-            "hugetlb.current",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        hugetlb_current.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let hugetlb_failcnt = KernfsNode::new_attr(
-            "hugetlb.failcnt",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        hugetlb_failcnt.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let hugetlb_limit_in_bytes = KernfsNode::new_attr(
-            "hugetlb.limit_in_bytes",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        hugetlb_limit_in_bytes.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let hugetlb_usage_in_bytes = KernfsNode::new_attr(
-            "hugetlb.usage_in_bytes",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        hugetlb_usage_in_bytes.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        Ok(node)
-    }
-}
-
-struct NetClsSubsystem;
-
-impl NetClsSubsystem {
-    pub fn new(name: &str, parent: Arc<KernfsNode>) -> Result<Arc<KernfsNode>> {
-        let mode = InodeMode::from_bits_truncate(0o555);
-        let node = KernfsNode::new_dir(
-            name,
-            Some(mode),
-            KernfsNodeFlag::empty(),
-            parent.this_weak(),
-        )?;
-
-        let net_cls_classid = KernfsNode::new_attr(
-            "net_cls.classid",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        net_cls_classid.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let net_cls_cgroups = KernfsNode::new_attr(
-            "net_cls.cgroups",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        net_cls_cgroups.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let net_cls_mark = KernfsNode::new_attr(
-            "net_cls.mark",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        net_cls_mark.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        Ok(node)
-    }
-}
-
-struct PerfEventSubsystem;
-
-impl PerfEventSubsystem {
-    pub fn new(name: &str, parent: Arc<KernfsNode>) -> Result<Arc<KernfsNode>> {
-        let mode = InodeMode::from_bits_truncate(0o555);
-        let node = KernfsNode::new_dir(
-            name,
-            Some(mode),
-            KernfsNodeFlag::empty(),
-            parent.this_weak(),
-        )?;
-
-        let perf_event_enable = KernfsNode::new_attr(
-            "perf_event.enable",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        perf_event_enable.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let perf_event_events = KernfsNode::new_attr(
-            "perf_event.events",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        perf_event_events.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let perf_event_inherit = KernfsNode::new_attr(
-            "perf_event.inherit",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        perf_event_inherit.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let perf_event_read = KernfsNode::new_attr(
-            "perf_event.read",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        perf_event_read.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let perf_event_stat = KernfsNode::new_attr(
-            "perf_event.stat",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        perf_event_stat.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        Ok(node)
-    }
-}
-
-struct PidsSubsystem;
-
-impl PidsSubsystem {
-    pub fn new(name: &str, parent: Arc<KernfsNode>) -> Result<Arc<KernfsNode>> {
-        let mode = InodeMode::from_bits_truncate(0o555);
-        let node = KernfsNode::new_dir(
-            name,
-            Some(mode),
-            KernfsNodeFlag::empty(),
-            parent.this_weak(),
-        )?;
-
-        let pids_max = KernfsNode::new_attr(
-            "pids.max",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        pids_max.set_data(Box::new(CgroupSubsystemData::new("max")))?;
-
-        let pids_current = KernfsNode::new_attr(
-            "pids.current",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        pids_current.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        Ok(node)
-    }
-}
-
-struct SystemdSubsystem;
-
-impl SystemdSubsystem {
-    pub fn new(name: &str, parent: Arc<KernfsNode>) -> Result<Arc<KernfsNode>> {
-        let mode = InodeMode::from_bits_truncate(0o555);
-        let node = KernfsNode::new_dir(
-            name,
-            Some(mode),
-            KernfsNodeFlag::empty(),
-            parent.this_weak(),
-        )?;
-
-        let cgroup_clone_children = KernfsNode::new_attr(
-            "cgroup.clone_children",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cgroup_clone_children.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let cgroup_procs = KernfsNode::new_attr(
-            "cgroup.procs",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        cgroup_procs.set_data(Box::new(CgroupSubsystemData::new("")))?;
-
-        let notify_on_release = KernfsNode::new_attr(
-            "notify_on_release",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        notify_on_release.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let tasks = KernfsNode::new_attr(
-            "tasks",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        tasks.set_data(Box::new(CgroupSubsystemData::new("")))?;
-
-        Ok(node)
-    }
-}
-
-struct RdmaSubsystem;
-
-impl RdmaSubsystem {
-    pub fn new(name: &str, parent: Arc<KernfsNode>) -> Result<Arc<KernfsNode>> {
-        let mode = InodeMode::from_bits_truncate(0o555);
-        let node = KernfsNode::new_dir(
-            name,
-            Some(mode),
-            KernfsNodeFlag::empty(),
-            parent.this_weak(),
-        )?;
-
-        let rdma_max = KernfsNode::new_attr(
-            "rdma.max",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        rdma_max.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let rdma_current = KernfsNode::new_attr(
-            "rdma.current",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        rdma_current.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        Ok(node)
-    }
-}
-
-struct BlkioSubsystem;
-
-impl BlkioSubsystem {
-    pub fn new(name: &str, parent: Arc<KernfsNode>) -> Result<Arc<KernfsNode>> {
-        let mode = InodeMode::from_bits_truncate(0o555);
-        let node = KernfsNode::new_dir(
-            name,
-            Some(mode),
-            KernfsNodeFlag::empty(),
-            parent.this_weak(),
-        )?;
-
-        let blkio_reset_stats = KernfsNode::new_attr(
-            "blkio.reset_stats",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_reset_stats.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let blkio_sectors = KernfsNode::new_attr(
-            "blkio.sectors",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_sectors.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let blkio_io_service_bytes = KernfsNode::new_attr(
-            "blkio.io_service_bytes",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_io_service_bytes.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let blkio_io_serviced = KernfsNode::new_attr(
-            "blkio.io_serviced",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_io_serviced.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let blkio_io_service_time = KernfsNode::new_attr(
-            "blkio.io_service_time",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_io_service_time.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let blkio_io_wait_time = KernfsNode::new_attr(
-            "blkio.io_wait_time",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_io_wait_time.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let blkio_io_merged = KernfsNode::new_attr(
-            "blkio.io_merged",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_io_merged.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let blkio_time = KernfsNode::new_attr(
-            "blkio.time",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_time.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let blkio_delay = KernfsNode::new_attr(
-            "blkio.delay",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_delay.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let blkio_throttle_io_service_bytes = KernfsNode::new_attr(
-            "blkio.throttle.io_service_bytes",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_throttle_io_service_bytes.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let blkio_throttle_io_serviced = KernfsNode::new_attr(
-            "blkio.throttle.io_serviced",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_throttle_io_serviced.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let blkio_throttle_read_bps_device = KernfsNode::new_attr(
-            "blkio.throttle.read_bps_device",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_throttle_read_bps_device.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let blkio_throttle_write_bps_device = KernfsNode::new_attr(
-            "blkio.throttle.write_bps_device",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_throttle_write_bps_device.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let blkio_throttle_read_iops_device = KernfsNode::new_attr(
-            "blkio.throttle.read_iops_device",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_throttle_read_iops_device.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        let blkio_throttle_write_iops_device = KernfsNode::new_attr(
-            "blkio.throttle.write_iops_device",
-            Some(InodeMode::from_bits_truncate(0o755)),
-            KernfsNodeFlag::empty(),
-            node.this_weak(),
-        )?;
-        blkio_throttle_write_iops_device.set_data(Box::new(CgroupSubsystemData::new("0")))?;
-
-        Ok(node)
     }
 }

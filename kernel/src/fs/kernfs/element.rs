@@ -202,4 +202,17 @@ impl KernfsElem {
             _ => None,
         }
     }
+
+    pub fn read_link(&self) -> Result<String> {
+        match self {
+            KernfsElem::Symlink(link) => {
+                if let Some(target_kn) = link.target_kn() {
+                    Ok(target_kn.downcast_ref::<KernfsNode>().unwrap().name())
+                } else {
+                    return_errno!(Errno::ENOENT)
+                }
+            }
+            _ => return_errno!(Errno::EINVAL),
+        }
+    }
 }

@@ -344,6 +344,7 @@ impl Inode for KernfsNode {
     }
 
     fn create(&self, name: &str, type_: InodeType, mode: InodeMode) -> Result<Arc<dyn Inode>> {
+        println!("[ffff] krtng create: name: {}", name);
         if self.type_() != InodeType::Dir {
             return_errno!(Errno::ENOTDIR);
         }
@@ -471,7 +472,7 @@ impl Inode for KernfsNode {
         if self.type_() != InodeType::SymLink {
             return_errno!(Errno::EINVAL);
         }
-        Ok(self.inner.read().name.clone())
+        self.inner.read().elem.read_link()
     }
 
     fn write_link(&self, target: &str) -> Result<()> {
