@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 use alloc::sync::{Arc, Weak};
-use inherit_methods_macro::inherit_methods;
 /// A pseudo filesystem that functions as cgroupfs.
 /// It takes effect if you mount it to `/sys/fs/cgroup`.
 use core::{
@@ -9,9 +8,13 @@ use core::{
 };
 
 use aster_rights::Full;
+use inherit_methods_macro::inherit_methods;
 use ostd::mm::VmWriter;
 
-use super::utils::{InodeMode, InodeType, IoctlCmd, Metadata};
+use super::{
+    kernfs::PseudoNode,
+    utils::{InodeMode, InodeType, IoctlCmd, Metadata},
+};
 use crate::{
     fs::{
         kernfs::{DataProvider, KernfsNode, KernfsNodeFlag, PseudoFileSystem},
@@ -198,16 +201,32 @@ impl PseudoFileSystem for CgroupFS {
             let subsystem_node = CgroupSubsystem::new(subsys_name, root.this(), &attributes)?;
             // Optionally, create symlinks if needed
             if subsys_name == "cpu" {
-                KernfsNode::new_symlink("cpuacct", KernfsNodeFlag::empty(),
-                    subsystem_node.this_weak_node(), root.this_weak_node())?;
-                KernfsNode::new_symlink("cpu,cpuacct", KernfsNodeFlag::empty(),
-                    subsystem_node.this_weak_node(), root.this_weak_node())?;
+                KernfsNode::new_symlink(
+                    "cpuacct",
+                    KernfsNodeFlag::empty(),
+                    subsystem_node.this_weak_node(),
+                    root.this_weak_node(),
+                )?;
+                KernfsNode::new_symlink(
+                    "cpu,cpuacct",
+                    KernfsNodeFlag::empty(),
+                    subsystem_node.this_weak_node(),
+                    root.this_weak_node(),
+                )?;
             }
             if subsys_name == "net_cls" {
-                KernfsNode::new_symlink("net_prio", KernfsNodeFlag::empty(),
-                    subsystem_node.this_weak_node(), root.this_weak_node())?;
-                KernfsNode::new_symlink("net_cls,net_prio", KernfsNodeFlag::empty(),
-                    subsystem_node.this_weak_node(), root.this_weak_node())?;
+                KernfsNode::new_symlink(
+                    "net_prio",
+                    KernfsNodeFlag::empty(),
+                    subsystem_node.this_weak_node(),
+                    root.this_weak_node(),
+                )?;
+                KernfsNode::new_symlink(
+                    "net_cls,net_prio",
+                    KernfsNodeFlag::empty(),
+                    subsystem_node.this_weak_node(),
+                    root.this_weak_node(),
+                )?;
             }
             // FIXME: DO NOT create it here, it should be created by the user
             CgroupSubsystem::new("mycontainer", subsystem_node.this(), &attributes)?;
@@ -260,19 +279,19 @@ impl CgroupSubsystem {
         parent: Arc<CgroupSubsystem>,
         attributes: &[(&str, &str)],
     ) -> Result<Arc<Self>> {
-        let node = KernfsNode::new_dir(name, None, KernfsNodeFlag::empty(), parent.this_weak_node())?;
+        let node =
+            KernfsNode::new_dir(name, None, KernfsNodeFlag::empty(), parent.this_weak_node())?;
 
         // Create attribute nodes
         for (attr_name, initial_value) in attributes {
             let attr_node = KernfsNode::new_attr(
                 attr_name,
-                Some(InodeMode::from_bits_truncate(0o755)),
+                Some(InodeMode::from_bits_truncate(0o644)),
                 KernfsNodeFlag::empty(),
                 node.this_weak(),
             )?;
             attr_node.set_data(Box::new(CgroupSubsystemData::new(initial_value)))?;
         }
-        println!("[kernel] cgroup subsystem {} is ready", name);
 
         Ok(Arc::new(Self(node)))
     }
@@ -282,20 +301,54 @@ impl CgroupSubsystem {
         Arc::new(Self(node))
     }
 
+    pub fn this_weak(&self) -> Weak<CgroupSubsystem> {
+        Arc::downgrade(&self.this())
+    }
+
     pub fn this_weak_node(&self) -> Weak<KernfsNode> {
         self.0.this_weak()
     }
 
-    pub fn this_weak(&self) -> Weak<CgroupSubsystem> {
-       Arc::downgrade(&self.this())
+    pub fn this(&self) -> Arc<Self> {
+        Arc::new(self.clone())
     }
 
     pub fn this_node(&self) -> Arc<KernfsNode> {
         self.0.clone()
     }
+}
 
-    pub fn this(&self) -> Arc<Self> {
-        Arc::new(self.clone())
+impl PseudoNode for CgroupSubsystem {
+    fn name(&self) -> String {
+        self.0.name()
+    }
+
+    fn parent(&self) -> Option<Arc<dyn PseudoNode>> {
+        self.0.parent()
+    }
+
+    fn pseudo_fs(&self) -> Arc<dyn PseudoFileSystem> {
+        self.0.pseudo_fs()
+    }
+
+    fn generate_ino(&self) -> u64 {
+        self.0.generate_ino()
+    }
+
+    fn set_data(&self, data: Box<dyn DataProvider>) -> Result<()> {
+        self.0.set_data(data)
+    }
+
+    fn remove(&self, name: &str) -> Result<()> {
+        self.0.remove(name)
+    }
+
+    fn insert(&self, name: String, node: Arc<dyn Inode>) -> Result<()> {
+        self.0.insert(name, node)
+    }
+
+    fn get_children(&self) -> Option<BTreeMap<String, Arc<dyn Inode>>> {
+        self.0.get_children()
     }
 }
 
@@ -328,7 +381,7 @@ impl Inode for CgroupSubsystem {
     fn ioctl(&self, _cmd: IoctlCmd, _arg: usize) -> Result<i32>;
     fn is_dentry_cacheable(&self) -> bool;
     fn page_cache(&self) -> Option<Vmo<Full>>;
-    
+
     fn link(&self, _inode: &Arc<dyn Inode>, _name: &str) -> Result<()>;
     fn unlink(&self, _name: &str) -> Result<()>;
     fn as_device(&self) -> Option<Arc<dyn super::device::Device>>;

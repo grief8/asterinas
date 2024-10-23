@@ -16,6 +16,8 @@ use crate::{
     prelude::*,
 };
 
+use super::kernfs::PseudoNode;
+
 mod devices;
 pub mod inode;
 mod kernel;

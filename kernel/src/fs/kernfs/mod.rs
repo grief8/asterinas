@@ -9,7 +9,7 @@ use alloc::sync::Arc;
 pub use element::{DataProvider, KernfsElem};
 pub use inode::{KernfsNode, KernfsNodeFlag};
 
-use super::utils::FileSystem;
+use super::utils::{FileSystem, Inode};
 use crate::prelude::*;
 
 /// Block size.
@@ -67,6 +67,17 @@ pub trait PseudoFileSystem: FileSystem {
     fn init(&self) -> Result<()>;
 
     fn fs(&self) -> Arc<dyn FileSystem>;
+}
+
+pub trait PseudoNode: Inode {
+    fn name(&self) -> String;
+    fn parent(&self) -> Option<Arc<dyn PseudoNode>>;
+    fn pseudo_fs(&self) -> Arc<dyn PseudoFileSystem>;
+    fn generate_ino(&self) -> u64;
+    fn set_data(&self, data: Box<dyn DataProvider>) -> Result<()>;
+    fn remove(&self, name: &str) -> Result<()>;
+    fn insert(&self, name: String, node: Arc<dyn Inode>) -> Result<()>;
+    fn get_children(&self) -> Option<BTreeMap<String, Arc<dyn Inode>>>;
 }
 
 /// A toy pseudo filesystem that is working as sysfs.

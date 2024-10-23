@@ -7,7 +7,7 @@ use ostd::sync::RwMutex;
 use crate::{
     events::{Events, EventsFilter, Observer, Subject},
     fs::{
-        kernfs::{DataProvider, KernfsNode, KernfsNodeFlag, PseudoFileSystem},
+        kernfs::{DataProvider, KernfsNode, KernfsNodeFlag, PseudoFileSystem, PseudoNode},
         utils::{Inode, InodeMode, InodeType},
     },
     prelude::*,
@@ -92,12 +92,12 @@ impl KObject {
     /// Creates a new dir KObject.
     pub fn new_dir(name: &str, mode: u16, parent: Option<Weak<KObject>>) -> Result<Arc<Self>> {
         let mode = InodeMode::from_bits_truncate(mode);
-        let parent_node = parent.as_ref().and_then(|p| p.upgrade()).unwrap();
+        let parent_node: Arc<dyn PseudoNode> = parent.as_ref().and_then(|p| p.upgrade()).unwrap();
         let node = KernfsNode::new_dir(
             name,
             Some(mode),
             KernfsNodeFlag::empty(),
-            Arc::downgrade(&parent_node.get_node()),
+            Arc::downgrade(&parent_node),
         )?;
 
         let this = Arc::new_cyclic(|weak_kobject| Self {
@@ -123,12 +123,12 @@ impl KObject {
         parent: Option<Weak<KObject>>,
         target: Weak<dyn Inode>,
     ) -> Result<Arc<Self>> {
-        let parent_node = parent.as_ref().and_then(|p| p.upgrade()).unwrap();
+        let parent_node: Arc<dyn PseudoNode>  = parent.as_ref().and_then(|p| p.upgrade()).unwrap();
         let node = KernfsNode::new_symlink(
             name,
             KernfsNodeFlag::empty(),
             target,
-            Arc::downgrade(&parent_node.get_node()),
+            Arc::downgrade(&parent_node),
         )?;
 
         let this = Arc::new_cyclic(|weak_kobject| Self {
@@ -152,12 +152,12 @@ impl KObject {
     /// Creates a new Attribute KObject.
     pub fn new_attr(name: &str, mode: u16, parent: Option<Weak<KObject>>) -> Result<Arc<Self>> {
         let mode = InodeMode::from_bits_truncate(mode);
-        let parent_node = parent.as_ref().and_then(|p| p.upgrade()).unwrap();
+        let parent_node: Arc<dyn PseudoNode>  = parent.as_ref().and_then(|p| p.upgrade()).unwrap();
         let node = KernfsNode::new_attr(
             name,
             Some(mode),
             KernfsNodeFlag::empty(),
-            Arc::downgrade(&parent_node.get_node()),
+            Arc::downgrade(&parent_node),
         )?;
 
         let this = Arc::new_cyclic(|weak_kobject| Self {
@@ -179,46 +179,77 @@ impl KObject {
     }
 }
 
-impl KObject {
-    pub fn name(&self) -> String {
+impl PseudoNode for KObject {
+    fn name(&self) -> String {
         self.node.name()
     }
 
-    pub fn parent(&self) -> Option<Weak<KObject>> {
-        self.parent.clone()
+    fn parent(&self) -> Option<Arc<dyn PseudoNode>> {
+        self.parent.as_ref().and_then(|p| p.upgrade()).map(|arc| arc as Arc<dyn PseudoNode>)
     }
 
+    fn pseudo_fs(&self) -> Arc<dyn PseudoFileSystem> {
+        self.node.pseudo_fs()
+    }
+
+    fn generate_ino(&self) -> u64 {
+        self.node.generate_ino()
+    }
+
+    fn set_data(&self, data: Box<dyn DataProvider>) -> Result<()> {
+        self.node.set_data(data)
+    }
+
+    fn remove(&self, name: &str) -> Result<()> {
+        if let Some(children) = &self.children {
+            if let Some(child) = children.write().remove(name) {
+                child.notify_observers(UEvent::new(Action::Remove));
+                self.node.remove(name)?;
+                Ok(())
+            } else {
+                return_errno!(Errno::ENOENT);
+            }
+        } else {
+            return_errno!(Errno::ENOTDIR);
+        }
+    }
+
+    fn insert(&self, name: String, node: Arc<dyn Inode>) -> Result<()> {
+        self.node.insert(name, node)
+        // let node = node.downcast_ref::<KObject>().unwrap();
+
+        // if let Some(children) = &self.children {
+        //     children.write().insert(name, Arc::new(node.clone()));
+        //     Ok(())
+        // } else {
+        //     return_errno!(Errno::EINVAL);
+        // }
+    }
+
+    fn get_children(&self) -> Option<BTreeMap<String, Arc<dyn Inode>>> {
+        self.node.get_children()
+    }
+}
+
+impl Clone for KObject {
+    fn clone(&self) -> Self {
+        Self {
+            node: self.node.clone(),
+            subject: Subject::new(),
+            parent: self.parent.clone(),
+            this: self.this.clone(),
+            children: Some(RwMutex::new(BTreeMap::new())),
+        }
+    }
+}
+
+impl KObject {
     pub fn this(&self) -> Arc<KObject> {
         self.this.upgrade().unwrap()
     }
 
     pub fn this_weak(&self) -> Weak<KObject> {
         self.this.clone()
-    }
-
-    pub fn pseudo_fs(&self) -> Arc<dyn PseudoFileSystem> {
-        self.node.pseudo_fs()
-    }
-
-    pub fn generate_ino(&self) -> u64 {
-        self.node.generate_ino()
-    }
-
-    pub fn set_data(&self, data: Box<dyn DataProvider>) -> Result<()> {
-        self.node.set_data(data)
-    }
-
-    pub fn insert(&self, name: String, node: Arc<KObject>) -> Result<()> {
-        if let Some(children) = &self.children {
-            children.write().insert(name, node);
-            Ok(())
-        } else {
-            return_errno!(Errno::EINVAL);
-        }
-    }
-
-    pub fn get_children(&self) -> Option<BTreeMap<String, Arc<KObject>>> {
-        self.children.as_ref().map(|c| c.read().clone())
     }
 
     pub fn register_observer(&self, observer: Weak<dyn Observer<UEvent>>, mask: UEventFilter) {

@@ -11,8 +11,7 @@ use core::time::Duration;
 use ostd::sync::RwLock;
 
 use super::{
-    element::{DataProvider, KernfsElem},
-    PseudoFileSystem, BLOCK_SIZE,
+    element::{DataProvider, KernfsElem}, PseudoFileSystem, PseudoNode, BLOCK_SIZE
 };
 use crate::{
     events::IoEvents,
@@ -62,7 +61,7 @@ struct Inner {
 #[derive(Debug)]
 pub struct KernfsNode {
     inner: RwLock<Inner>,
-    parent: Option<Weak<KernfsNode>>,
+    parent: Option<Weak<dyn PseudoNode>>,
     this: Weak<KernfsNode>,
 }
 
@@ -94,7 +93,7 @@ impl KernfsNode {
         name: &str,
         mode: Option<InodeMode>,
         flags: KernfsNodeFlag,
-        parent: Weak<KernfsNode>,
+        parent: Weak<dyn PseudoNode>,
     ) -> Result<Arc<Self>> {
         let arc_parent = parent.upgrade().unwrap();
         let ino = arc_parent.generate_ino();
@@ -123,7 +122,7 @@ impl KernfsNode {
         name: &str,
         mode: Option<InodeMode>,
         flags: KernfsNodeFlag,
-        parent: Weak<KernfsNode>,
+        parent: Weak<dyn PseudoNode>,
     ) -> Result<Arc<Self>> {
         let arc_parent = parent.upgrade().unwrap();
         let ino = arc_parent.generate_ino();
@@ -149,7 +148,7 @@ impl KernfsNode {
         name: &str,
         flags: KernfsNodeFlag,
         target: Weak<dyn Inode>,
-        parent: Weak<KernfsNode>,
+        parent: Weak<dyn PseudoNode>,
     ) -> Result<Arc<Self>> {
         let arc_parent = parent.upgrade().unwrap();
         let ino = arc_parent.generate_ino();
@@ -170,17 +169,6 @@ impl KernfsNode {
         arc_parent.insert(name.to_string(), new_inode.clone())?;
         Ok(new_inode)
     }
-}
-
-impl KernfsNode {
-    pub fn name(&self) -> String {
-        self.inner.read().name.clone()
-    }
-
-    /// Get the parent of the current node.
-    pub fn parent(&self) -> Option<Arc<KernfsNode>> {
-        self.parent.as_ref().and_then(|p| p.upgrade())
-    }
 
     /// Get the current node.
     pub fn this(&self) -> Arc<KernfsNode> {
@@ -191,19 +179,30 @@ impl KernfsNode {
     pub fn this_weak(&self) -> Weak<KernfsNode> {
         self.this.clone()
     }
+}
+
+impl PseudoNode for KernfsNode {
+    fn name(&self) -> String {
+        self.inner.read().name.clone()
+    }
+
+    /// Get the parent of the current node.
+    fn parent(&self) -> Option<Arc<dyn PseudoNode>> {
+        self.parent.as_ref().and_then(|p| p.upgrade())
+    }
 
     /// Get the pseudo filesystem of the current node.
-    pub fn pseudo_fs(&self) -> Arc<dyn PseudoFileSystem> {
+    fn pseudo_fs(&self) -> Arc<dyn PseudoFileSystem> {
         self.inner.read().fs.upgrade().unwrap()
     }
 
     /// Generate a new inode number for the current node.
-    pub fn generate_ino(&self) -> u64 {
+    fn generate_ino(&self) -> u64 {
         self.pseudo_fs().alloc_id()
     }
 
     /// Set the data of the current node.
-    pub fn set_data(&self, data: Box<dyn DataProvider>) -> Result<()> {
+    fn set_data(&self, data: Box<dyn DataProvider>) -> Result<()> {
         self.inner.write().elem.set_data(data)
     }
 
@@ -456,7 +455,7 @@ impl Inode for KernfsNode {
     }
 
     fn lookup(&self, name: &str) -> Result<Arc<dyn Inode>> {
-        let inode = match name {
+        let inode: Arc<dyn Inode> = match name {
             "." => self.this(),
             ".." => self.parent().unwrap_or(self.this()),
             name => self.inner.read().elem.lookup(name)?,
@@ -472,7 +471,7 @@ impl Inode for KernfsNode {
         if self.type_() != InodeType::SymLink {
             return_errno!(Errno::EINVAL);
         }
-        self.inner.read().elem.read_link()
+        Ok(self.name())
     }
 
     fn write_link(&self, target: &str) -> Result<()> {

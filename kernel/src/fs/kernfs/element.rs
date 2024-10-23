@@ -189,7 +189,7 @@ impl KernfsElem {
     pub fn lookup(&self, name: &str) -> Result<Arc<dyn Inode>> {
         match self {
             KernfsElem::Dir(dir) => match dir.children.get(name) {
-                Some(node) => Ok(node.clone()),
+                Some(node) => Ok(node.clone() as Arc<dyn Inode>),
                 None => return_errno!(Errno::ENOENT),
             },
             _ => return_errno!(Errno::ENOTDIR),
@@ -200,19 +200,6 @@ impl KernfsElem {
         match self {
             KernfsElem::Dir(dir) => Some(dir.children.clone()),
             _ => None,
-        }
-    }
-
-    pub fn read_link(&self) -> Result<String> {
-        match self {
-            KernfsElem::Symlink(link) => {
-                if let Some(target_kn) = link.target_kn() {
-                    Ok(target_kn.downcast_ref::<KernfsNode>().unwrap().name())
-                } else {
-                    return_errno!(Errno::ENOENT)
-                }
-            }
-            _ => return_errno!(Errno::EINVAL),
         }
     }
 }

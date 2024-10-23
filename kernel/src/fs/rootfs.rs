@@ -12,12 +12,10 @@ use super::{
     path::MountNode,
     procfs::ProcFS,
     ramfs::RamFS,
+    sysfs::SysFS,
     utils::{FileSystem, InodeMode, InodeType},
 };
-use crate::{
-    fs::{cgroupfs, sysfs::SysFS},
-    prelude::*,
-};
+use crate::prelude::*;
 
 /// Unpack and prepare the rootfs from the initramfs CPIO buffer.
 pub fn init(initramfs_buf: &[u8]) -> Result<()> {
