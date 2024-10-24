@@ -40,7 +40,6 @@ impl MountInfoFileOps {
 impl FileOps for MountInfoFileOps {
     fn data(&self) -> Result<Vec<u8>> {
         let mount_entries = vec![
-            // 原有挂载信息
             (
                 1,
                 0,
@@ -125,7 +124,6 @@ impl FileOps for MountInfoFileOps {
                 "securityfs",
                 "rw,nosuid,nodev,noexec,relatime",
             ),
-            // 添加的 cgroup 挂载信息
             (
                 34,
                 24,

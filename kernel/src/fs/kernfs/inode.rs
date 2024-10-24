@@ -11,7 +11,8 @@ use core::time::Duration;
 use ostd::sync::RwLock;
 
 use super::{
-    element::{DataProvider, KernfsElem}, PseudoFileSystem, PseudoNode, BLOCK_SIZE
+    element::{DataProvider, KernfsElem},
+    PseudoFileSystem, PseudoNode, BLOCK_SIZE,
 };
 use crate::{
     events::IoEvents,
@@ -113,7 +114,7 @@ impl KernfsNode {
             this: weak_self.clone(),
         });
 
-        arc_parent.insert(name.to_string(), new_inode.clone())?;
+        // arc_parent.insert(name.to_string(), new_inode.clone())?;
 
         Ok(new_inode)
     }
@@ -140,14 +141,14 @@ impl KernfsNode {
             parent: Some(parent),
             this: weak_self.clone(),
         });
-        arc_parent.insert(name.to_string(), new_inode.clone())?;
+        // arc_parent.insert(name.to_string(), new_inode.clone())?;
         Ok(new_inode)
     }
 
     pub fn new_symlink(
         name: &str,
         flags: KernfsNodeFlag,
-        target: Weak<dyn Inode>,
+        target: Arc<dyn PseudoNode>,
         parent: Weak<dyn PseudoNode>,
     ) -> Result<Arc<Self>> {
         let arc_parent = parent.upgrade().unwrap();
@@ -160,13 +161,13 @@ impl KernfsNode {
                 name: name.to_string(),
                 flags: KernfsNodeFlag::empty(),
                 metadata,
-                elem: KernfsElem::new_symlink(target),
+                elem: KernfsElem::new_symlink(target.name()),
                 fs: Arc::downgrade(&arc_parent.pseudo_fs()),
             }),
             parent: Some(parent),
             this: weak_self.clone(),
         });
-        arc_parent.insert(name.to_string(), new_inode.clone())?;
+        // arc_parent.insert(name.to_string(), new_inode.clone())?;
         Ok(new_inode)
     }
 
@@ -333,8 +334,6 @@ impl Inode for KernfsNode {
     }
 
     fn write_at(&self, offset: usize, buf: &mut VmReader) -> Result<usize> {
-        debug!("KernfsNode::write_at is called");
-
         self.inner.write().elem.write_at(offset, buf)
     }
 
@@ -343,7 +342,6 @@ impl Inode for KernfsNode {
     }
 
     fn create(&self, name: &str, type_: InodeType, mode: InodeMode) -> Result<Arc<dyn Inode>> {
-        println!("[ffff] krtng create: name: {}", name);
         if self.type_() != InodeType::Dir {
             return_errno!(Errno::ENOTDIR);
         }
@@ -360,7 +358,7 @@ impl Inode for KernfsNode {
             InodeType::SymLink => KernfsNode::new_symlink(
                 name,
                 KernfsNodeFlag::empty(),
-                self.this_weak(),
+                self.this(),
                 self.this_weak(),
             ),
             _ => return_errno!(Errno::EINVAL),
@@ -419,10 +417,10 @@ impl Inode for KernfsNode {
         if self.lookup(name).is_ok() {
             return_errno!(Errno::EEXIST);
         }
-        let target = old
+        let target: Arc<dyn PseudoNode> = old
             .downcast_ref::<KernfsNode>()
             .ok_or(Error::new(Errno::EXDEV))?
-            .this_weak();
+            .this();
         let new_node =
             KernfsNode::new_symlink(name, KernfsNodeFlag::empty(), target, self.this_weak())?;
         Ok(())
@@ -471,15 +469,14 @@ impl Inode for KernfsNode {
         if self.type_() != InodeType::SymLink {
             return_errno!(Errno::EINVAL);
         }
-        Ok(self.name())
+        self.inner.read().elem.read_link()
     }
 
     fn write_link(&self, target: &str) -> Result<()> {
         if self.type_() != InodeType::SymLink {
             return_errno!(Errno::EINVAL);
         }
-        self.inner.write().name = target.to_string();
-        Ok(())
+        self.inner.write().elem.write_link(target)
     }
 
     fn ioctl(&self, cmd: IoctlCmd, arg: usize) -> Result<i32> {

@@ -8,6 +8,7 @@ use inode::KObject;
 use kernel::init_kernel;
 use spin::Once;
 
+use super::kernfs::PseudoNode;
 use crate::{
     fs::{
         kernfs::{DataProvider, PseudoFileSystem},
@@ -15,8 +16,6 @@ use crate::{
     },
     prelude::*,
 };
-
-use super::kernfs::PseudoNode;
 
 mod devices;
 pub mod inode;
@@ -65,7 +64,7 @@ impl SysFS {
     pub fn create_symlink(
         name: &str,
         parent: Arc<KObject>,
-        target: Weak<dyn Inode>,
+        target: Arc<dyn PseudoNode>,
     ) -> Result<Arc<KObject>> {
         KObject::new_link(name, Some(parent.this_weak()), target)
     }

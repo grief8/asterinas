@@ -27,16 +27,20 @@ pub struct KernfsElemDir {
 
 #[derive(Debug)]
 pub struct KernfsElemSymlink {
-    target_kn: Weak<dyn Inode>,
+    target_kn: String,
 }
 
 impl KernfsElemSymlink {
-    pub fn new(target_kn: Weak<dyn Inode>) -> Self {
+    pub fn new(target_kn: String) -> Self {
         KernfsElemSymlink { target_kn }
     }
 
-    pub fn target_kn(&self) -> Option<Arc<dyn Inode>> {
-        self.target_kn.upgrade()
+    pub fn get_target_kn(&self) -> String {
+        self.target_kn.clone()
+    }
+
+    pub fn set_target_kn(&mut self, target_kn: String) {
+        self.target_kn = target_kn;
     }
 }
 
@@ -102,7 +106,7 @@ impl KernfsElem {
         })
     }
 
-    pub fn new_symlink(target_kn: Weak<dyn Inode>) -> Self {
+    pub fn new_symlink(target_kn: String) -> Self {
         KernfsElem::Symlink(KernfsElemSymlink::new(target_kn))
     }
 
@@ -135,13 +139,6 @@ impl KernfsElem {
     pub fn read_at(&self, offset: usize, buf: &mut VmWriter) -> Result<usize> {
         match self {
             KernfsElem::Attr(attr) => attr.read_at(offset, buf),
-            KernfsElem::Symlink(link) => {
-                if let Some(target_kn) = link.target_kn() {
-                    target_kn.read_at(offset, buf)
-                } else {
-                    return_errno!(Errno::ENOENT)
-                }
-            }
             _ => return_errno!(Errno::EINVAL),
         }
     }
@@ -149,13 +146,6 @@ impl KernfsElem {
     pub fn write_at(&mut self, offset: usize, buf: &mut VmReader) -> Result<usize> {
         match self {
             KernfsElem::Attr(attr) => attr.write_at(offset, buf),
-            KernfsElem::Symlink(link) => {
-                if let Some(target_kn) = link.target_kn() {
-                    target_kn.write_at(offset, buf)
-                } else {
-                    return_errno!(Errno::ENOENT)
-                }
-            }
             _ => return_errno!(Errno::EINVAL),
         }
     }
@@ -200,6 +190,23 @@ impl KernfsElem {
         match self {
             KernfsElem::Dir(dir) => Some(dir.children.clone()),
             _ => None,
+        }
+    }
+
+    pub fn read_link(&self) -> Result<String> {
+        match self {
+            KernfsElem::Symlink(link) => Ok(link.get_target_kn()),
+            _ => return_errno!(Errno::EINVAL),
+        }
+    }
+
+    pub fn write_link(&mut self, target_kn: &str) -> Result<()> {
+        match self {
+            KernfsElem::Symlink(link) => {
+                link.set_target_kn(target_kn.to_string());
+                Ok(())
+            }
+            _ => return_errno!(Errno::EINVAL),
         }
     }
 }

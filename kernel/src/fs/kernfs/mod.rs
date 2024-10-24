@@ -90,7 +90,7 @@ mod tests {
 
     use crate::{
         fs::{
-            kernfs::{DataProvider, KernfsNode, KernfsNodeFlag, PseudoFileSystem},
+            kernfs::{DataProvider, KernfsNode, KernfsNodeFlag, PseudoFileSystem, PseudoNode},
             utils::{FileSystem, FsFlags, Inode, SuperBlock, NAME_MAX},
         },
         prelude::*,

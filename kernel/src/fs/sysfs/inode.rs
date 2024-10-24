@@ -121,9 +121,9 @@ impl KObject {
     pub fn new_link(
         name: &str,
         parent: Option<Weak<KObject>>,
-        target: Weak<dyn Inode>,
+        target: Arc<dyn PseudoNode>,
     ) -> Result<Arc<Self>> {
-        let parent_node: Arc<dyn PseudoNode>  = parent.as_ref().and_then(|p| p.upgrade()).unwrap();
+        let parent_node: Arc<dyn PseudoNode> = parent.as_ref().and_then(|p| p.upgrade()).unwrap();
         let node = KernfsNode::new_symlink(
             name,
             KernfsNodeFlag::empty(),
@@ -152,7 +152,7 @@ impl KObject {
     /// Creates a new Attribute KObject.
     pub fn new_attr(name: &str, mode: u16, parent: Option<Weak<KObject>>) -> Result<Arc<Self>> {
         let mode = InodeMode::from_bits_truncate(mode);
-        let parent_node: Arc<dyn PseudoNode>  = parent.as_ref().and_then(|p| p.upgrade()).unwrap();
+        let parent_node: Arc<dyn PseudoNode> = parent.as_ref().and_then(|p| p.upgrade()).unwrap();
         let node = KernfsNode::new_attr(
             name,
             Some(mode),
@@ -185,7 +185,10 @@ impl PseudoNode for KObject {
     }
 
     fn parent(&self) -> Option<Arc<dyn PseudoNode>> {
-        self.parent.as_ref().and_then(|p| p.upgrade()).map(|arc| arc as Arc<dyn PseudoNode>)
+        self.parent
+            .as_ref()
+            .and_then(|p| p.upgrade())
+            .map(|arc| arc as Arc<dyn PseudoNode>)
     }
 
     fn pseudo_fs(&self) -> Arc<dyn PseudoFileSystem> {
@@ -431,7 +434,7 @@ impl Inode for KObject {
         let target = old
             .downcast_ref::<KObject>()
             .ok_or(Error::new(Errno::EXDEV))?
-            .this_weak();
+            .this();
         let new_node = KObject::new_link(name, Some(self.this_weak()), target)?;
         Ok(())
     }
@@ -465,15 +468,7 @@ impl Inode for KObject {
     }
 
     fn lookup(&self, name: &str) -> Result<Arc<dyn Inode>> {
-        if let Some(children) = &self.children {
-            if let Some(child) = children.read().get(name) {
-                Ok(child.clone())
-            } else {
-                return_errno!(Errno::ENOENT);
-            }
-        } else {
-            return_errno!(Errno::ENOTDIR);
-        }
+        self.node.lookup(name)
     }
 
     fn rename(&self, old_name: &str, target: &Arc<dyn Inode>, new_name: &str) -> Result<()> {

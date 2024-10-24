@@ -198,38 +198,17 @@ impl PseudoFileSystem for CgroupFS {
             .ok_or_else(|| Error::new(Errno::EINVAL))?;
 
         for (subsys_name, attributes) in CgroupFS::get_cgroup_config() {
-            let subsystem_node = CgroupSubsystem::new(subsys_name, root.this(), &attributes)?;
+            let subsystem_node =
+                CgroupSubsystem::new_subsystem(subsys_name, root.this(), &attributes)?;
             // Optionally, create symlinks if needed
             if subsys_name == "cpu" {
-                KernfsNode::new_symlink(
-                    "cpuacct",
-                    KernfsNodeFlag::empty(),
-                    subsystem_node.this_weak_node(),
-                    root.this_weak_node(),
-                )?;
-                KernfsNode::new_symlink(
-                    "cpu,cpuacct",
-                    KernfsNodeFlag::empty(),
-                    subsystem_node.this_weak_node(),
-                    root.this_weak_node(),
-                )?;
+                CgroupSubsystem::new_link("cpuacct", root.this(), subsystem_node.this())?;
+                CgroupSubsystem::new_link("cpu,cpuacct", root.this(), subsystem_node.this())?;
             }
             if subsys_name == "net_cls" {
-                KernfsNode::new_symlink(
-                    "net_prio",
-                    KernfsNodeFlag::empty(),
-                    subsystem_node.this_weak_node(),
-                    root.this_weak_node(),
-                )?;
-                KernfsNode::new_symlink(
-                    "net_cls,net_prio",
-                    KernfsNodeFlag::empty(),
-                    subsystem_node.this_weak_node(),
-                    root.this_weak_node(),
-                )?;
+                CgroupSubsystem::new_link("net_prio", root.this(), subsystem_node.this())?;
+                CgroupSubsystem::new_link("net_cls,net_prio", root.this(), subsystem_node.this())?;
             }
-            // FIXME: DO NOT create it here, it should be created by the user
-            CgroupSubsystem::new("mycontainer", subsystem_node.this(), &attributes)?;
         }
 
         Ok(())
@@ -274,7 +253,7 @@ pub struct CgroupSubsystem(Arc<KernfsNode>);
 
 impl CgroupSubsystem {
     /// Creates a new subsystem with the given name and attributes.
-    pub fn new(
+    pub fn new_subsystem(
         name: &str,
         parent: Arc<CgroupSubsystem>,
         attributes: &[(&str, &str)],
@@ -290,10 +269,29 @@ impl CgroupSubsystem {
                 KernfsNodeFlag::empty(),
                 node.this_weak(),
             )?;
+            node.insert(attr_name.to_string(), attr_node.this())?;
             attr_node.set_data(Box::new(CgroupSubsystemData::new(initial_value)))?;
         }
 
-        Ok(Arc::new(Self(node)))
+        let cgroup_node = Arc::new(Self(node));
+        parent.insert(name.to_string(), cgroup_node.clone())?;
+        Ok(cgroup_node)
+    }
+
+    pub fn new_link(
+        name: &str,
+        parent: Arc<dyn PseudoNode>,
+        target: Arc<dyn PseudoNode>,
+    ) -> Result<Arc<Self>> {
+        let node = KernfsNode::new_symlink(
+            name,
+            KernfsNodeFlag::empty(),
+            target,
+            Arc::downgrade(&parent.clone()),
+        )?;
+        let symlink = Arc::new(Self(node));
+        parent.insert(name.to_string(), symlink.clone())?;
+        Ok(symlink)
     }
 
     pub fn new_root(name: &str, fs: Weak<CgroupFS>) -> Arc<Self> {
@@ -410,8 +408,7 @@ impl Inode for CgroupSubsystem {
     ) -> Result<Arc<dyn Inode>>;
 
     fn lookup(&self, _name: &str) -> Result<Arc<dyn Inode>>;
-    fn create(&self, name: &str, type_: InodeType, mode: InodeMode) -> Result<Arc<dyn Inode>> {
-        println!("CgroupSubsystem::create is called {}", name);
+    fn create(&self, name: &str, type_: InodeType, _mode: InodeMode) -> Result<Arc<dyn Inode>> {
         if self.0.type_() != InodeType::Dir {
             return_errno!(Errno::ENOTDIR);
         }
@@ -424,7 +421,7 @@ impl Inode for CgroupSubsystem {
                 let attributes = config
                     .iter()
                     .find(|(subsys_name, _)| *subsys_name == self.0.name());
-                CgroupSubsystem::new(name, self.this(), &attributes.unwrap().1)?
+                CgroupSubsystem::new_subsystem(name, self.this(), &attributes.unwrap().1)?
             }
             _ => return_errno!(Errno::EINVAL),
         };
