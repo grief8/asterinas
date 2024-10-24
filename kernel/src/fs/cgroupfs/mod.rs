@@ -90,7 +90,7 @@ impl CgroupFS {
             (
                 "cpuset",
                 vec![
-                    ("cpuset.cpus", "0-3"),
+                    ("cpuset.cpus", "0"),
                     ("cpuset.mems", "0"),
                     ("cpuset.memory_migrate", "0"),
                     ("cpuset.cpu_exclusive", "0"),
