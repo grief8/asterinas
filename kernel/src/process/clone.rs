@@ -21,7 +21,7 @@ use crate::{
     fs::{file_table::FileTable, thread_info::ThreadFsInfo},
     prelude::*,
     process::posix_thread::allocate_posix_tid,
-    thread::{AsThread, Tid},
+    thread::{AsThread, Thread, Tid},
 };
 
 bitflags! {
@@ -162,7 +162,8 @@ impl CloneFlags {
             | CloneFlags::CLONE_SETTLS
             | CloneFlags::CLONE_PARENT_SETTID
             | CloneFlags::CLONE_CHILD_SETTID
-            | CloneFlags::CLONE_CHILD_CLEARTID;
+            | CloneFlags::CLONE_CHILD_CLEARTID
+            | CloneFlags::CLONE_VFORK;
         let unsupported_flags = *self - supported_flags;
         if !unsupported_flags.is_empty() {
             panic!("contains unsupported clone flags: {:?}", unsupported_flags);
@@ -191,7 +192,8 @@ pub fn clone_child(
     } else {
         let child_process = clone_child_process(ctx, parent_context, clone_args)?;
         child_process.run();
-
+        Thread::yield_now();
+        
         let child_pid = child_process.pid();
         Ok(child_pid)
     }
