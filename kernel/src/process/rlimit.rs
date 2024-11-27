@@ -21,17 +21,59 @@ impl ResourceLimits {
 
 impl Default for ResourceLimits {
     fn default() -> Self {
-        let stack_size = RLimit64::new(INIT_STACK_SIZE as u64);
-        let heap_size = RLimit64::new(USER_HEAP_SIZE_LIMIT as u64);
-        let open_files = RLimit64::new(1024);
+        let mut rlimits = [RLimit64::default(); RLIMIT_COUNT];
 
-        let mut rlimits = Self {
-            rlimits: [RLimit64::default(); RLIMIT_COUNT],
-        };
-        *rlimits.get_rlimit_mut(ResourceType::RLIMIT_STACK) = stack_size;
-        *rlimits.get_rlimit_mut(ResourceType::RLIMIT_DATA) = heap_size;
-        *rlimits.get_rlimit_mut(ResourceType::RLIMIT_NOFILE) = open_files;
-        rlimits
+        // RLIMIT_CPU
+        rlimits[ResourceType::RLIMIT_CPU as usize] = RLimit64::new(u64::MAX, u64::MAX);
+
+        // RLIMIT_FSIZE
+        rlimits[ResourceType::RLIMIT_FSIZE as usize] = RLimit64::new(u64::MAX, u64::MAX);
+
+        // RLIMIT_DATA
+        rlimits[ResourceType::RLIMIT_DATA as usize] =
+            RLimit64::new(USER_HEAP_SIZE_LIMIT as u64, u64::MAX);
+
+        // RLIMIT_STACK
+        rlimits[ResourceType::RLIMIT_STACK as usize] =
+            RLimit64::new(INIT_STACK_SIZE as u64, u64::MAX);
+
+        // RLIMIT_CORE
+        rlimits[ResourceType::RLIMIT_CORE as usize] = RLimit64::new(0, u64::MAX);
+
+        // RLIMIT_RSS
+        rlimits[ResourceType::RLIMIT_RSS as usize] = RLimit64::new(u64::MAX, u64::MAX);
+
+        // RLIMIT_NPROC
+        rlimits[ResourceType::RLIMIT_NPROC as usize] = RLimit64::new(2053063, 2053063);
+
+        // RLIMIT_NOFILE
+        rlimits[ResourceType::RLIMIT_NOFILE as usize] = RLimit64::new(1048576, 1048576);
+
+        // RLIMIT_MEMLOCK
+        rlimits[ResourceType::RLIMIT_MEMLOCK as usize] = RLimit64::new(67108864, 67108864);
+
+        // RLIMIT_AS
+        rlimits[ResourceType::RLIMIT_AS as usize] = RLimit64::new(u64::MAX, u64::MAX);
+
+        // RLIMIT_LOCKS
+        rlimits[ResourceType::RLIMIT_LOCKS as usize] = RLimit64::new(u64::MAX, u64::MAX);
+
+        // RLIMIT_SIGPENDING
+        rlimits[ResourceType::RLIMIT_SIGPENDING as usize] = RLimit64::new(2053063, 2053063);
+
+        // RLIMIT_MSGQUEUE
+        rlimits[ResourceType::RLIMIT_MSGQUEUE as usize] = RLimit64::new(819200, 819200);
+
+        // RLIMIT_NICE
+        rlimits[ResourceType::RLIMIT_NICE as usize] = RLimit64::new(0, 0);
+
+        // RLIMIT_RTPRIO
+        rlimits[ResourceType::RLIMIT_RTPRIO as usize] = RLimit64::new(0, 0);
+
+        // RLIMIT_RTTIME
+        rlimits[ResourceType::RLIMIT_RTTIME as usize] = RLimit64::new(u64::MAX, u64::MAX);
+
+        ResourceLimits { rlimits }
     }
 }
 
@@ -66,8 +108,8 @@ pub struct RLimit64 {
 }
 
 impl RLimit64 {
-    pub fn new(cur: u64) -> Self {
-        Self { cur, max: u64::MAX }
+    pub fn new(cur: u64, max: u64) -> Self {
+        Self { cur, max }
     }
 
     pub fn get_cur(&self) -> u64 {
@@ -76,6 +118,10 @@ impl RLimit64 {
 
     pub fn get_max(&self) -> u64 {
         self.max
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.cur <= self.max
     }
 }
 
