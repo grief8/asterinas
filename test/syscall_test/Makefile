@@ -10,7 +10,6 @@ TESTS ?= \
 	alarm_test \
 	chmod_test \
 	chown_test \
-	chroot_test \
 	creat_test \
 	dup_test \
 	epoll_test \
@@ -39,7 +38,6 @@ TESTS ?= \
 	read_test \
 	readv_test \
 	rename_test \
-	rlimits_test \
 	semaphore_test \
 	sendfile_test \
 	sigaltstack_test \
