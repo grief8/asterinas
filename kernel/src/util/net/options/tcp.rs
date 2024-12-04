@@ -3,7 +3,7 @@
 use super::RawSocketOption;
 use crate::{
     impl_raw_socket_option,
-    net::socket::ip::stream::options::{Congestion, MaxSegment, NoDelay, WindowClamp},
+    net::socket::ip::stream::options::{Congestion, KeepAlive, KeepIdle, MaxSegment, NoDelay, WindowClamp},
     prelude::*,
     util::net::options::SocketOption,
 };
@@ -32,6 +32,8 @@ pub fn new_tcp_option(name: i32) -> Result<Box<dyn RawSocketOption>> {
         CTcpOptionName::CONGESTION => Ok(Box::new(Congestion::new())),
         CTcpOptionName::MAXSEG => Ok(Box::new(MaxSegment::new())),
         CTcpOptionName::WINDOW_CLAMP => Ok(Box::new(WindowClamp::new())),
+        CTcpOptionName::KEEPIDLE => Ok(Box::new(KeepIdle::new())),
+        CTcpOptionName::KEEPALIVE => Ok(Box::new(KeepAlive::new())),
         _ => todo!(),
     }
 }
@@ -40,3 +42,5 @@ impl_raw_socket_option!(NoDelay);
 impl_raw_socket_option!(Congestion);
 impl_raw_socket_option!(MaxSegment);
 impl_raw_socket_option!(WindowClamp);
+impl_raw_socket_option!(KeepIdle);
+impl_raw_socket_option!(KeepAlive);

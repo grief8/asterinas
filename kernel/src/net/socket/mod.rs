@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use self::options::SocketOption;
+pub use self::options::SocketOption;
 pub use self::util::{
     options::LingerOption, send_recv_flags::SendRecvFlags, shutdown_cmd::SockShutdownCmd,
     socket_addr::SocketAddr, MessageHeader,
