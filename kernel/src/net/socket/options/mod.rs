@@ -20,4 +20,5 @@ impl_socket_options!(
     pub struct Error(Option<crate::error::Error>);
     pub struct Linger(LingerOption);
     pub struct KeepAlive(bool);
+    pub struct Priority(u32);
 );

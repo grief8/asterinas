@@ -56,7 +56,68 @@ pub fn sys_ioctl(fd: FileDesc, cmd: u32, arg: Vaddr, ctx: &Context) -> Result<Sy
             entry.set_flags(entry.flags() & (!FdFlags::CLOEXEC));
             0
         }
+        IoctlCmd::SIOCGIFCONF => {
+            // Read the IfConf structure from user space
+            let ifconf  = ctx.user_space().read_val::<IfConf>(arg)?;
+            debug!("SIOCGIFCONF: ifconf = {:?}", ifconf);
+            let buffer_ptr = ifconf.ifc_buf;
+            let buffer_len = ifconf.ifc_len as usize;
+
+            // Define the interface name and IP for localhost
+            let if_name = b"lo\0\0\0\0\0\0\0\0\0\0\0\0\0\0"; // 16 bytes
+            let ip_addr = 0x0100007Fu32; // 127.0.0.1 in little endian
+
+            // Create the IfReq structure
+            let mut ifreq = IfReq {
+                ifr_name: {
+                    let mut name = [0u8; IFNAMSIZ];
+                    name.copy_from_slice(&if_name[..IFNAMSIZ]);
+                    name
+                },
+                ifr_union: {
+                    // Set the IP address in ifr_union (assuming the first 4 bytes)
+                    let mut union = [0u8; 24];
+                    union[..4].copy_from_slice(&ip_addr.to_le_bytes());
+                    union
+                },
+            };
+
+            // Ensure the buffer is large enough to hold one IfReq
+            let ifreq_size = core::mem::size_of::<IfReq>();
+            if buffer_len < ifreq_size {
+                return_errno!(Errno::EINVAL);
+            }
+
+            // Write the IfReq structure to the user buffer
+            ctx.user_space().write_val(buffer_ptr, &ifreq)?;
+            debug!("SIOCGIFCONF: ifreq = {:?}", ifreq);
+
+            // Update the ifc_len to reflect the number of bytes written
+            let updated_ifconf = IfConf {
+                ifc_len: ifreq_size as i32,
+                ifc_buf: ifconf.ifc_buf, // Buffer address remains the same
+            };
+            ctx.user_space().write_val(arg, &updated_ifconf)?;
+            debug!("SIOCGIFCONF: updated ifconf = {:?}", updated_ifconf);
+            // Return the number of bytes written
+            ifreq_size as _
+        }
         _ => file.ioctl(ioctl_cmd, arg)?,
     };
     Ok(SyscallReturn::Return(res as _))
+}
+
+#[derive(Debug, Pod, Copy, Clone)]
+#[repr(C)]
+pub struct IfConf {
+    pub ifc_len: i32,
+    pub ifc_buf: Vaddr,
+}
+
+const IFNAMSIZ: usize = 16;
+#[derive(Debug, Pod, Copy, Clone)]
+#[repr(C)]
+pub struct IfReq {
+    pub ifr_name: [u8; IFNAMSIZ],
+    pub ifr_union: [u8; 24],
 }

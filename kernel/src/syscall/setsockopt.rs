@@ -27,17 +27,17 @@ pub fn sys_setsockopt(
 
     let socket = get_socket_from_fd(sockfd)?;
 
-    let raw_option = {
-        let mut option = new_raw_socket_option(level, optname)?;
+    // let raw_option = {
+    //     let mut option = new_raw_socket_option(level, optname)?;
 
-        option.read_from_user(optval, optlen)?;
+    //     option.read_from_user(optval, optlen)?;
 
-        option
-    };
+    //     option
+    // };
 
-    debug!("raw option: {:?}", raw_option);
+    // debug!("raw option: {:?}", raw_option);
 
-    socket.set_option(raw_option.as_sock_option())?;
+    // socket.set_option(raw_option.as_sock_option())?;
 
     Ok(SyscallReturn::Return(0))
 }

@@ -83,3 +83,47 @@ macro_rules! match_sock_option_mut {
         }
     }};
 }
+
+#[macro_export]
+macro_rules! impl_ip_options {
+    ($(
+        $(#[$outer:meta])*
+        pub struct $name: ident ( $value_ty:ty );
+    )*) => {
+        $(
+            $(#[$outer])*
+            #[derive(Debug)]
+            pub struct $name (Option<$value_ty>);
+
+            impl $name {
+                pub fn new() -> Self {
+                    Self (None)
+                }
+
+                pub fn get(&self) -> Option<&$value_ty> {
+                    self.0.as_ref()
+                }
+
+                pub fn set(&mut self, value: $value_ty) {
+                    self.0 = Some(value);
+                }
+            }
+
+            impl $crate::net::socket::SocketOption for $name {
+                fn as_any(&self) -> &dyn core::any::Any {
+                    self
+                }
+
+                fn as_any_mut(&mut self) -> &mut dyn core::any::Any {
+                    self
+                }
+            }
+
+            impl Default for $name {
+                fn default() -> Self {
+                    Self::new()
+                }
+            }
+        )*
+    };
+}
