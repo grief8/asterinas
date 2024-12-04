@@ -33,6 +33,8 @@ pub enum IoctlCmd {
     FIOCLEX = 0x5451,
     /// Enable or disable asynchronous I/O mode.
     FIOASYNC = 0x5452,
+    /// Get network interface configuration
+    SIOCGIFCONF = 0x8912,
     /// Get Pty Number
     TIOCGPTN = 0x80045430,
     /// Lock/unlock Pty

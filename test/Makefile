@@ -82,6 +82,8 @@ $(INITRAMFS)/lib64:
 $(INITRAMFS)/etc:
 	@mkdir -p $@
 	@cp $(CUR_DIR)/etc/* $@
+	@cp /root/hosts $@
+	@cp /root/resolv.conf $@
 
 # Install busybox into /bin and /usr/bin.
 $(INITRAMFS)/bin:
@@ -101,6 +103,9 @@ $(INITRAMFS)/usr/local:
 	@mkdir -p $@
 	@cp -r /usr/local/nginx $@
 	@cp -r /usr/local/redis $@
+	@cp -r /usr/local/jdk8u202/jre/ $@
+	@cp -r /root/java/NativeHeapAllocationExample.class $@
+	@cp -r /opt/spark $@
 
 .PHONY: $(INITRAMFS)/test
 $(INITRAMFS)/test:
