@@ -74,7 +74,7 @@ pub fn create_new_user_task(user_space: Arc<UserSpace>, thread_ref: Arc<Thread>)
             if current_thread.is_exited() {
                 break;
             }
-            handle_pending_signal(user_ctx, &ctx).unwrap();
+            let _ = handle_pending_signal(user_ctx, &ctx);
             // If current is suspended, wait for a signal to wake up self
             while current_thread.is_stopped() {
                 Thread::yield_now();

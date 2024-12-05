@@ -41,7 +41,7 @@ pub fn sys_madvise(
             ctx.user_space()
                 .read_bytes(start, &mut VmWriter::from(buffer.as_mut_slice()))?;
         }
-        MadviseBehavior::MADV_DONTNEED => {
+        MadviseBehavior::MADV_DONTNEED | MadviseBehavior::MADV_NOHUGEPAGE => {
             warn!("MADV_DONTNEED isn't implemented, do nothing for now.");
         }
         MadviseBehavior::MADV_FREE => madv_free(start, end, ctx)?,

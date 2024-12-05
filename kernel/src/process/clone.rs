@@ -13,7 +13,7 @@ use super::{
     process_table,
     process_vm::ProcessVm,
     signal::{constants::SIGCHLD, sig_disposition::SigDispositions, sig_num::SigNum},
-    Credentials, Process, ProcessBuilder,
+    Credentials, Namespaces, Process, ProcessBuilder,
 };
 use crate::{
     cpu::LinuxAbi,
@@ -21,7 +21,7 @@ use crate::{
     fs::{file_table::FileTable, fs_resolver::FsResolver, utils::FileCreationMask},
     prelude::*,
     process::posix_thread::allocate_posix_tid,
-    thread::{AsThread, Tid},
+    thread::{AsThread, Thread, Tid},
 };
 
 bitflags! {
@@ -162,7 +162,13 @@ impl CloneFlags {
             | CloneFlags::CLONE_SETTLS
             | CloneFlags::CLONE_PARENT_SETTID
             | CloneFlags::CLONE_CHILD_SETTID
-            | CloneFlags::CLONE_CHILD_CLEARTID;
+            | CloneFlags::CLONE_CHILD_CLEARTID
+            | CloneFlags::CLONE_NEWNS
+            | CloneFlags::CLONE_VFORK
+            | CloneFlags::CLONE_NEWUTS
+            | CloneFlags::CLONE_NEWIPC
+            | CloneFlags::CLONE_NEWPID
+            | CloneFlags::CLONE_NEWNET;
         let unsupported_flags = *self - supported_flags;
         if !unsupported_flags.is_empty() {
             panic!("contains unsupported clone flags: {:?}", unsupported_flags);
@@ -191,6 +197,7 @@ pub fn clone_child(
     } else {
         let child_process = clone_child_process(ctx, parent_context, clone_args)?;
         child_process.run();
+        Thread::yield_now();
 
         let child_pid = child_process.pid();
         Ok(child_pid)
@@ -356,6 +363,11 @@ fn clone_child_process(
     clone_child_cleartid(child_posix_thread, clone_args.child_tid, clone_flags)?;
     clone_child_settid(child_posix_thread, clone_args.child_tid, clone_flags)?;
 
+    // clone namespaces and switch to new namespaces
+    let current = current!();
+    let child_namespaces = clone_namespaces(&child, current.namespaces(), clone_flags);
+    child.switch_namespaces(child_namespaces);
+
     // Sets parent process and group for child process.
     set_parent_and_group(process, &child);
 
@@ -405,6 +417,7 @@ fn clone_vm(parent_process_vm: &ProcessVm, clone_flags: CloneFlags) -> Result<Pr
     } else {
         ProcessVm::fork_from(parent_process_vm)
     }
+    // ProcessVm::fork_from(parent_process_vm)
 }
 
 fn clone_cpu_context(
@@ -418,9 +431,12 @@ fn clone_cpu_context(
     // The return value of child thread is zero
     child_context.set_syscall_ret(0);
 
+    let mut new_sp = new_sp;
     if clone_flags.contains(CloneFlags::CLONE_VM) {
         // if parent and child shares the same address space, a new stack must be specified.
-        debug_assert!(new_sp != 0);
+        if !clone_flags.contains(CloneFlags::CLONE_VFORK) {
+            debug_assert!(new_sp != 0);
+        }
     }
     if new_sp != 0 {
         // If stack size is not 0, the `new_sp` points to the BOTTOMMOST byte of stack.
@@ -468,6 +484,22 @@ fn clone_files(
     }
 }
 
+fn clone_namespaces(
+    process: &Arc<Process>,
+    parent_namespaces: &Arc<Mutex<Namespaces>>,
+    clone_flags: CloneFlags,
+) -> Arc<Mutex<Namespaces>> {
+    let parent_namespaces = parent_namespaces.lock();
+
+    let new_mnt_ns = if clone_flags.contains(CloneFlags::CLONE_NEWNS) {
+        parent_namespaces.mnt_ns().copy_mnt_ns(process)
+    } else {
+        parent_namespaces.mnt_ns().clone()
+    };
+
+    Arc::new(Mutex::new(Namespaces::new(new_mnt_ns)))
+}
+
 fn clone_sighand(
     parent_sig_dispositions: &Arc<Mutex<SigDispositions>>,
     clone_flags: CloneFlags,
@@ -501,4 +533,11 @@ fn set_parent_and_group(parent: &Process, child: &Arc<Process>) {
     *child_group_mut = Arc::downgrade(&process_group);
 
     process_table_mut.insert(child.pid(), child.clone());
+}
+
+pub fn unshare(unshare_flags: CloneFlags) -> Result<()> {
+    let current = current!();
+    let child_namespaces = clone_namespaces(&current, current.namespaces(), unshare_flags);
+    current.switch_namespaces(child_namespaces);
+    Ok(())
 }

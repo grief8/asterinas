@@ -33,5 +33,6 @@ pub fn sys_read(
         file.read_bytes(&mut [])?
     };
 
+    debug!("[fff] finish read, fd = {}, read_len = {}", fd, read_len);
     Ok(SyscallReturn::Return(read_len as _))
 }

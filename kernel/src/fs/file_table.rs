@@ -99,6 +99,7 @@ impl FileTable {
         let min_free_fd = get_min_free_fd();
         let entry = FileTableEntry::new(file, flags);
         self.table.put_at(min_free_fd, entry);
+        debug!("[fff] dup fd: {} -> {}", fd, min_free_fd);
         Ok(min_free_fd as FileDesc)
     }
 
@@ -123,19 +124,26 @@ impl FileTable {
         entry.map(|e| e.file)
     }
 
-    pub fn close_file(&mut self, fd: FileDesc) -> Option<Arc<dyn FileLike>> {
-        let removed_entry = self.table.remove(fd as usize)?;
-
+    fn handle_close(&mut self, fd: FileDesc, removed_entry: FileTableEntry) -> Arc<dyn FileLike> {
+        debug!("[fff] close fd: {}, pid = {}", fd, current!().pid());
         let events = FdEvents::Close(fd);
         self.notify_fd_events(&events);
         removed_entry.notify_fd_events(&events);
 
-        let closed_file = removed_entry.file;
-        if let Some(closed_inode_file) = closed_file.downcast_ref::<InodeHandle>() {
+        let closed_file = removed_entry.file.clone();
+
+        if let Some(inode_file) = closed_file.downcast_ref::<InodeHandle>() {
             // FIXME: Operation below should not hold any mutex if `self` is protected by a spinlock externally
-            closed_inode_file.release_range_locks();
+            inode_file.release_range_locks();
         }
-        Some(closed_file)
+
+        closed_file
+    }
+
+    pub fn close_file(&mut self, fd: FileDesc) -> Option<Arc<dyn FileLike>> {
+        self.table
+            .remove(fd as usize)
+            .map(|removed_entry| self.handle_close(fd, removed_entry))
     }
 
     pub fn close_all(&mut self) -> Vec<Arc<dyn FileLike>> {
@@ -150,7 +158,6 @@ impl FileTable {
     where
         F: Fn(FileDesc, &FileTableEntry) -> bool,
     {
-        let mut closed_files = Vec::new();
         let closed_fds: Vec<FileDesc> = self
             .table
             .idxes_and_items()
@@ -163,19 +170,15 @@ impl FileTable {
             })
             .collect();
 
-        for fd in closed_fds {
-            let removed_entry = self.table.remove(fd as usize).unwrap();
-            let events = FdEvents::Close(fd);
-            self.notify_fd_events(&events);
-            removed_entry.notify_fd_events(&events);
-            closed_files.push(removed_entry.file.clone());
-            if let Some(inode_file) = removed_entry.file.downcast_ref::<InodeHandle>() {
-                // FIXME: Operation below should not hold any mutex if `self` is protected by a spinlock externally
-                inode_file.release_range_locks();
-            }
-        }
-
-        closed_files
+        // Close each file descriptor using the helper method
+        closed_fds
+            .into_iter()
+            .filter_map(|fd| {
+                self.table
+                    .remove(fd as usize)
+                    .map(|removed_entry| self.handle_close(fd, removed_entry))
+            })
+            .collect()
     }
 
     pub fn get_file(&self, fd: FileDesc) -> Result<&Arc<dyn FileLike>> {

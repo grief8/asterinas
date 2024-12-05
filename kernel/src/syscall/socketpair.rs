@@ -30,6 +30,9 @@ pub fn sys_socketpair(
         (CSocketAddrFamily::AF_UNIX, SockType::SOCK_STREAM) => {
             UnixStreamSocket::new_pair(nonblocking)
         }
+        (CSocketAddrFamily::AF_UNIX, SockType::SOCK_SEQPACKET) => {
+            UnixStreamSocket::new_pair(nonblocking)
+        }
         _ => return_errno_with_message!(
             Errno::EAFNOSUPPORT,
             "cannot create socket pair for this family"
@@ -45,6 +48,7 @@ pub fn sys_socketpair(
         };
         let fd_a = file_table.insert(socket_a, fd_flags);
         let fd_b = file_table.insert(socket_b, fd_flags);
+        debug!("socketpair: fd_a = {:?}, fd_b = {:?}", fd_a, fd_b);
         SocketFds(fd_a, fd_b)
     };
 

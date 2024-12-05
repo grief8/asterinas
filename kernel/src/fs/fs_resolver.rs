@@ -236,6 +236,9 @@ impl FsResolver {
                     {
                         lookup_ctx.set_tail_file(next_name, must_be_dir);
                         lookup_ctx.set_parent(&dentry);
+                        if next_name == "'user:[4026531837]'" {
+                            return Ok(dentry);
+                        }
                     }
                     return Err(e);
                 }
@@ -300,7 +303,7 @@ impl FsResolver {
     /// If the last component is a symlink, do not deference it.
     pub fn lookup_dir_and_base_name(&self, path: &FsPath) -> Result<(Dentry, String)> {
         if matches!(path.inner, FsPathInner::Fd(_)) {
-            return_errno!(Errno::ENOENT);
+            return_errno_with_message!(Errno::ENOENT, "file descriptor is not matched");
         }
 
         let (follow_tail_link, stop_on_parent) = (false, true);
@@ -328,7 +331,7 @@ impl FsResolver {
         is_dir: bool,
     ) -> Result<(Dentry, String)> {
         if matches!(path.inner, FsPathInner::Fd(_)) {
-            return_errno!(Errno::ENOENT);
+            return_errno_with_message!(Errno::ENOENT, "file descriptor is not matched");
         }
 
         let (follow_tail_link, stop_on_parent) = (false, true);

@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use self::{cmdline::CmdlineFileOps, comm::CommFileOps, exe::ExeSymOps, fd::FdDirOps};
+use cgroup::CgroupFileOps;
+use mountinfo::MountInfoFileOps;
+use setgroups::SetgroupsFileOps;
+use task::TaskDirOps;
+use uid_map::UidMapFileOps;
+
+use self::{
+    cmdline::CmdlineFileOps, comm::CommFileOps, exe::ExeSymOps, fd::FdDirOps,
+};
 use super::template::{DirOps, ProcDir, ProcDirBuilder};
 use crate::{
     events::Observer,
@@ -12,12 +20,18 @@ use crate::{
     process::Process,
 };
 
+mod cgroup;
 mod cmdline;
 mod comm;
 mod exe;
 mod fd;
+mod mountinfo;
+mod ns;
+mod setgroups;
 mod stat;
 mod status;
+mod task;
+mod uid_map;
 
 /// Represents the inode at `/proc/[pid]`.
 pub struct PidDirOps(Arc<Process>);
@@ -55,6 +69,12 @@ impl DirOps for PidDirOps {
             "cmdline" => CmdlineFileOps::new_inode(self.0.clone(), this_ptr.clone()),
             "status" => status::StatusFileOps::new_inode(self.0.clone(), this_ptr.clone()),
             "stat" => stat::StatFileOps::new_inode(self.0.clone(), this_ptr.clone()),
+            "mountinfo" => MountInfoFileOps::new_inode(self.0.clone(), this_ptr.clone()),
+            "uid_map" => UidMapFileOps::new_inode(this_ptr.clone()),
+            "cgroup" => CgroupFileOps::new_inode(this_ptr.clone()),
+            "setgroups" => SetgroupsFileOps::new_inode(this_ptr.clone()),
+            "ns" => ns::NsDirOps::new_inode(this_ptr.clone()),
+            "task" => TaskDirOps::new_inode(self.0.clone(), this_ptr.clone()),
             _ => return_errno!(Errno::ENOENT),
         };
         Ok(inode)
@@ -83,6 +103,20 @@ impl DirOps for PidDirOps {
         });
         cached_children.put_entry_if_not_found("stat", || {
             stat::StatFileOps::new_inode(self.0.clone(), this_ptr.clone())
+        });
+        cached_children.put_entry_if_not_found("mountinfo", || {
+            MountInfoFileOps::new_inode(self.0.clone(), this_ptr.clone())
+        });
+        cached_children
+            .put_entry_if_not_found("uid_map", || UidMapFileOps::new_inode(this_ptr.clone()));
+        cached_children
+            .put_entry_if_not_found("cgroup", || CgroupFileOps::new_inode(this_ptr.clone()));
+        cached_children.put_entry_if_not_found("setgroups", || {
+            SetgroupsFileOps::new_inode(this_ptr.clone())
+        });
+        cached_children.put_entry_if_not_found("ns", || ns::NsDirOps::new_inode(this_ptr.clone()));
+        cached_children.put_entry_if_not_found("task", || {
+            TaskDirOps::new_inode(self.0.clone(), this_ptr.clone())
         });
     }
 }

@@ -18,6 +18,10 @@ pub fn sys_unlinkat(
 ) -> Result<SyscallReturn> {
     let flags =
         UnlinkFlags::from_bits(flags).ok_or(Error::with_message(Errno::EINVAL, "invalid flags"))?;
+    debug!(
+        "dirfd = {}, path_addr = {:#x}, flags = {:?}",
+        dirfd, path_addr, flags
+    );
     if flags.contains(UnlinkFlags::AT_REMOVEDIR) {
         return super::rmdir::sys_rmdirat(dirfd, path_addr, ctx);
     }

@@ -88,6 +88,7 @@ pub struct Consumer<T>(Fifo<T, ReadOp>);
 macro_rules! impl_common_methods_for_channel {
     () => {
         pub fn shutdown(&self) {
+            debug!("Shutting down the channel");
             self.0.common.shutdown()
         }
 
@@ -179,6 +180,7 @@ impl<T: Pod> Producer<T> {
 
 impl<T> Drop for Producer<T> {
     fn drop(&mut self) {
+        debug!("Producer is dropped");
         self.shutdown();
     }
 }
@@ -263,6 +265,7 @@ impl<T: Pod> Consumer<T> {
 
 impl<T> Drop for Consumer<T> {
     fn drop(&mut self) {
+        debug!("Consumer is dropped");
         self.shutdown();
     }
 }

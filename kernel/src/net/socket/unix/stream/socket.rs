@@ -2,6 +2,8 @@
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
+use ascii::AsAsciiStr;
+use ostd::mm::Infallible;
 use takeable::Takeable;
 
 use super::{
@@ -172,13 +174,18 @@ impl FileLike for UnixStreamSocket {
         // TODO: Set correct flags
         let flags = SendRecvFlags::empty();
         let read_len = self.recv(writer, flags)?;
+        debug!("[fff] socket read data, len: {}", read_len);
         Ok(read_len)
     }
 
     fn write(&self, reader: &mut VmReader) -> Result<usize> {
         // TODO: Set correct flags
         let flags = SendRecvFlags::empty();
-        self.send(reader, flags)
+        let mut data = vec![0u8; reader.remain()];
+        VmWriter::<'_, Infallible>::from(data.as_mut_slice()).write_fallible(reader)?;
+        debug!("[fff] socket write data: {:?}", data);
+        let mut tmp: VmReader<'_, Infallible> = VmReader::<'_, Infallible>::from(data.as_slice());
+        self.send(&mut tmp.to_fallible(), flags)
     }
 
     fn status_flags(&self) -> StatusFlags {
@@ -277,15 +284,15 @@ impl Socket for UnixStreamSocket {
         }
     }
 
-    fn shutdown(&self, cmd: SockShutdownCmd) -> Result<()> {
-        match self.state.read().as_ref() {
-            State::Init(init) => init.shutdown(cmd),
-            State::Listen(listen) => listen.shutdown(cmd),
-            State::Connected(connected) => connected.shutdown(cmd),
-        }
+    // fn shutdown(&mut self, cmd: SockShutdownCmd) -> Result<()> {
+    //     match self.state.read().take() {
+    //         State::Init(init) => init.shutdown(cmd),
+    //         State::Listen(listen) => listen.shutdown(cmd),
+    //         State::Connected(connected) => connected.shutdown(cmd),
+    //     }
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     fn addr(&self) -> Result<SocketAddr> {
         let addr = match self.state.read().as_ref() {
@@ -346,3 +353,14 @@ impl Socket for UnixStreamSocket {
         Ok((received_bytes, message_header))
     }
 }
+
+// impl Drop for UnixStreamSocket {
+//     fn drop(&mut self) {
+//         let mut state = self.state.write();
+//         match state.take() {
+//             State::Init(init) => init.shutdown(SockShutdownCmd::SHUT_RDWR),
+//             State::Listen(listener) => listener.shutdown(SockShutdownCmd::SHUT_RDWR),
+//             State::Connected(connected) => connected.shutdown(SockShutdownCmd::SHUT_RDWR),
+//         }
+//     }
+// }

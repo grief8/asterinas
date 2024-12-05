@@ -104,6 +104,7 @@ use crate::syscall::{
     setgid::sys_setgid,
     setgroups::sys_setgroups,
     setitimer::{sys_getitimer, sys_setitimer},
+    setns::sys_setns,
     setpgid::sys_setpgid,
     setregid::sys_setregid,
     setresgid::sys_setresgid,
@@ -116,7 +117,7 @@ use crate::syscall::{
     sigaltstack::sys_sigaltstack,
     socket::sys_socket,
     socketpair::sys_socketpair,
-    stat::{sys_fstat, sys_fstatat, sys_lstat, sys_stat},
+    stat::{sys_fstat, sys_fstatat, sys_lstat, sys_stat, sys_statx},
     statfs::{sys_fstatfs, sys_statfs},
     symlink::{sys_symlink, sys_symlinkat},
     sync::sys_sync,
@@ -129,6 +130,7 @@ use crate::syscall::{
     umount::sys_umount,
     uname::sys_uname,
     unlink::{sys_unlink, sys_unlinkat},
+    unshare::sys_unshare,
     utimens::{sys_futimesat, sys_utime, sys_utimensat, sys_utimes},
     wait4::sys_wait4,
     waitid::sys_waitid,
@@ -299,6 +301,7 @@ impl_syscall_nums_and_dispatch_fn! {
     SYS_FCHMODAT = 268         => sys_fchmodat(args[..3]);
     SYS_FACCESSAT = 269        => sys_faccessat(args[..3]);
     SYS_PSELECT6 = 270         => sys_pselect6(args[..6]);
+    SYS_UNSHARE = 272          => sys_unshare(args[..1]);
     SYS_SET_ROBUST_LIST = 273  => sys_set_robust_list(args[..2]);
     SYS_UTIMENSAT = 280        => sys_utimensat(args[..4]);
     SYS_EPOLL_PWAIT = 281      => sys_epoll_pwait(args[..6]);
@@ -312,9 +315,11 @@ impl_syscall_nums_and_dispatch_fn! {
     SYS_PREADV = 295           => sys_preadv(args[..4]);
     SYS_PWRITEV = 296          => sys_pwritev(args[..4]);
     SYS_PRLIMIT64 = 302        => sys_prlimit64(args[..4]);
+    SYS_SETNS = 308            => sys_setns(args[..2]);
     SYS_GETRANDOM = 318        => sys_getrandom(args[..3]);
     SYS_EXECVEAT = 322         => sys_execveat(args[..5], &mut user_ctx);
     SYS_PREADV2 = 327          => sys_preadv2(args[..5]);
     SYS_PWRITEV2 = 328         => sys_pwritev2(args[..5]);
+    SYS_STATX = 332            => sys_statx(args[..5]);
     SYS_CLONE3 = 435           => sys_clone3(args[..2], &user_ctx);
 }

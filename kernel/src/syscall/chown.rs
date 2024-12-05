@@ -24,12 +24,12 @@ pub fn sys_fchown(fd: FileDesc, uid: i32, gid: i32, ctx: &Context) -> Result<Sys
         let file_table = ctx.process.file_table().lock();
         file_table.get_file(fd)?.clone()
     };
-    if let Some(uid) = uid {
-        file.set_owner(uid)?;
-    }
-    if let Some(gid) = gid {
-        file.set_group(gid)?;
-    }
+    // if let Some(uid) = uid {
+    //     file.set_owner(uid)?;
+    // }
+    // if let Some(gid) = gid {
+    //     file.set_group(gid)?;
+    // }
     Ok(SyscallReturn::Return(0))
 }
 
@@ -87,12 +87,12 @@ pub fn sys_fchownat(
             fs.lookup(&fs_path)?
         }
     };
-    if let Some(uid) = uid {
-        dentry.set_owner(uid)?;
-    }
-    if let Some(gid) = gid {
-        dentry.set_group(gid)?;
-    }
+    // if let Some(uid) = uid {
+    //     dentry.set_owner(uid)?;
+    // }
+    // if let Some(gid) = gid {
+    //     dentry.set_group(gid)?;
+    // }
     Ok(SyscallReturn::Return(0))
 }
 

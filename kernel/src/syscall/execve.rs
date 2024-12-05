@@ -32,8 +32,9 @@ pub fn sys_execve(
         let executable_path = read_filename(filename_ptr, ctx)?;
         lookup_executable_file(AT_FDCWD, executable_path, OpenFlags::empty(), ctx)?
     };
-
+    debug!("[fff] sys_execve: elf_file: {:?}", elf_file);
     do_execve(elf_file, argv_ptr_ptr, envp_ptr_ptr, ctx, user_context)?;
+    debug!("[fff] sys_execve: do_execve done");
     Ok(SyscallReturn::NoReturn)
 }
 
@@ -110,8 +111,8 @@ fn do_execve(
     *posix_thread.clear_child_tid().lock() = 0;
 
     // Ensure that the file descriptors with the close-on-exec flag are closed.
-    let closed_files = process.file_table().lock().close_files_on_exec();
-    drop(closed_files);
+    // let _ = process.file_table().lock().close_files_on_exec();
+    // drop(closed_files);
 
     debug!("load program to root vmar");
     let (new_executable_path, elf_load_info) = {
@@ -128,6 +129,7 @@ fn do_execve(
     let credentials = ctx.posix_thread.credentials_mut();
     set_uid_from_elf(process, &credentials, &elf_file)?;
     set_gid_from_elf(process, &credentials, &elf_file)?;
+    credentials.set_keep_capabilities(false);
 
     // set executable path
     process.set_executable_path(new_executable_path);

@@ -10,7 +10,7 @@ use crate::{
     fs::{file_handle::FileLike, file_table::FileDesc, inode_handle::InodeHandle},
     prelude::*,
     vm::{
-        perms::VmPerms,
+        perms::{self, VmPerms},
         vmo::{VmoOptions, VmoRightsOp},
     },
 };
@@ -25,6 +25,7 @@ pub fn sys_mmap(
     ctx: &Context,
 ) -> Result<SyscallReturn> {
     let perms = VmPerms::from_bits_truncate(perms as u32);
+    // let perms = VmPerms::all();
     let option = MMapOptions::try_from(flags as u32)?;
     let res = do_sys_mmap(
         addr as usize,

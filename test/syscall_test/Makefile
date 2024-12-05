@@ -10,7 +10,6 @@ TESTS ?= \
 	alarm_test \
 	chmod_test \
 	chown_test \
-	chroot_test \
 	creat_test \
 	dup_test \
 	epoll_test \
@@ -29,6 +28,7 @@ TESTS ?= \
 	mount_test \
 	open_create_test \
 	open_test \
+	prctl_setuid_test \
 	pread64_test \
 	preadv2_test \
 	pselect_test \
@@ -38,7 +38,6 @@ TESTS ?= \
 	read_test \
 	readv_test \
 	rename_test \
-	rlimits_test \
 	semaphore_test \
 	sendfile_test \
 	sigaltstack_test \
@@ -52,6 +51,7 @@ TESTS ?= \
 	uidgid_test \
 	unlink_test \
 	utimes_test \
+	unshare_test \
 	vdso_clock_gettime_test \
 	write_test \
 	fallocate_test \

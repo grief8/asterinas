@@ -46,6 +46,7 @@ exclude = [
 
 [profile.release]
 lto = "thin"
+debug = true
 
 # Release profile configuration with Link Time Optimization (LTO) enabled.
 #

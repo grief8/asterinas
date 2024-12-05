@@ -11,7 +11,10 @@ use crate::{
 };
 
 pub fn sys_pipe2(fds: Vaddr, flags: u32, ctx: &Context) -> Result<SyscallReturn> {
-    debug!("flags: {:?}", flags);
+    debug!(
+        "[qqq] flags: {:?}",
+        CreationFlags::from_bits_truncate(flags)
+    );
 
     let (pipe_reader, pipe_writer) = pipe::new_pair()?;
 

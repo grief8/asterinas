@@ -60,10 +60,10 @@ fn set_new_stack(sig_stack_addr: Vaddr, old_stack: Option<&SigStack>, ctx: &Cont
         return Ok(());
     }
 
-    if let Some(old_stack) = old_stack
-        && old_stack.is_active()
-    {
-        return_errno_with_message!(Errno::EPERM, "the old stack is active now");
+    if let Some(old_stack) = old_stack {
+        if old_stack.is_active() {
+            return_errno_with_message!(Errno::EPERM, "the old stack is active now");
+        }
     }
 
     let new_stack = {

@@ -41,6 +41,25 @@ pub fn sys_prctl(
 
             // TODO: implement coredump
         }
+        PrctlCmd::PR_GET_KEEPCAPS => {
+            let keep_cap = {
+                let credentials = ctx.posix_thread.credentials();
+                if credentials.keep_capabilities() {
+                    1
+                } else {
+                    0
+                }
+            };
+
+            return Ok(SyscallReturn::Return(keep_cap as _));
+        }
+        PrctlCmd::PR_SET_KEEPCAPS(keep_cap) => {
+            if keep_cap > 1 {
+                return_errno!(Errno::EINVAL)
+            }
+            let credentials = ctx.posix_thread.credentials_mut();
+            credentials.set_keep_capabilities(keep_cap != 0);
+        }
         PrctlCmd::PR_GET_NAME(write_to_addr) => {
             let thread_name = ctx.posix_thread.thread_name().lock();
             if let Some(thread_name) = &*thread_name {
@@ -59,7 +78,17 @@ pub fn sys_prctl(
                     .user_space()
                     .read_cstring(read_addr, MAX_THREAD_NAME_LEN)?;
                 thread_name.set_name(&new_thread_name)?;
+                debug!("PR_SET_NAME: {}", new_thread_name.to_string_lossy());
             }
+        }
+        PrctlCmd::PR_SET_KEEPCAPS(flag) => {
+            debug!("PR_SET_KEEPCAPS: {}", flag);
+        }
+        PrctlCmd::PR_SET_CHILD_SUBREAPER(flag) => {
+            debug!("PR_SET_CHILD_SUBREAPER: {}", flag);
+        }
+        PrctlCmd::PR_GET_CHILD_SUBREAPER(flag) => {
+            debug!("PR_GET_CHILD_SUBREAPER: {}", flag);
         }
         _ => todo!(),
     }
@@ -70,10 +99,14 @@ const PR_SET_PDEATHSIG: i32 = 1;
 const PR_GET_PDEATHSIG: i32 = 2;
 const PR_GET_DUMPABLE: i32 = 3;
 const PR_SET_DUMPABLE: i32 = 4;
+const PR_GET_KEEPCAPS: i32 = 7;
+const PR_SET_KEEPCAPS: i32 = 8;
 const PR_SET_NAME: i32 = 15;
 const PR_GET_NAME: i32 = 16;
 const PR_SET_TIMERSLACK: i32 = 29;
 const PR_GET_TIMERSLACK: i32 = 30;
+const PR_SET_CHILD_SUBREAPER: i32 = 36;
+const PR_GET_CHILD_SUBREAPER: i32 = 37;
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy)]
@@ -82,12 +115,16 @@ pub enum PrctlCmd {
     PR_GET_PDEATHSIG(Vaddr),
     PR_SET_NAME(Vaddr),
     PR_GET_NAME(Vaddr),
+    PR_GET_KEEPCAPS,
+    PR_SET_KEEPCAPS(u32),
     #[allow(dead_code)]
     PR_SET_TIMERSLACK(u64),
     #[allow(dead_code)]
     PR_GET_TIMERSLACK,
     PR_SET_DUMPABLE(Dumpable),
     PR_GET_DUMPABLE,
+    PR_SET_CHILD_SUBREAPER(bool),
+    PR_GET_CHILD_SUBREAPER(bool),
 }
 
 #[repr(u64)]
@@ -112,6 +149,10 @@ impl PrctlCmd {
             PR_GET_NAME => Ok(PrctlCmd::PR_GET_NAME(arg2 as _)),
             PR_GET_TIMERSLACK => todo!(),
             PR_SET_TIMERSLACK => todo!(),
+            PR_GET_KEEPCAPS => Ok(PrctlCmd::PR_GET_KEEPCAPS),
+            PR_SET_KEEPCAPS => Ok(PrctlCmd::PR_SET_KEEPCAPS(arg2 as _)),
+            PR_SET_CHILD_SUBREAPER => Ok(PrctlCmd::PR_SET_CHILD_SUBREAPER(arg2 != 0)),
+            PR_GET_CHILD_SUBREAPER => Ok(PrctlCmd::PR_GET_CHILD_SUBREAPER(arg2 != 0)),
             _ => {
                 debug!("prctl cmd number: {}", option);
                 return_errno_with_message!(Errno::EINVAL, "unsupported prctl command");

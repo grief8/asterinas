@@ -22,8 +22,9 @@ pub fn sys_clone(
     parent_context: &UserContext,
 ) -> Result<SyscallReturn> {
     let args = CloneArgs::for_clone(clone_flags, parent_tidptr, child_tidptr, tls, new_sp)?;
-    debug!("flags = {:?}, child_stack_ptr = 0x{:x}, parent_tid_ptr = 0x{:x?}, child tid ptr = 0x{:x}, tls = 0x{:x}", args.flags, args.stack, args.parent_tid, args.child_tid, args.tls);
+    debug!("flags = {:?}, child_stack_ptr = 0x{:x}, parent_tid_ptr = 0x{:x?}, child tid ptr = 0x{:x}, tls = 0x{:x}, exit_signal = {:?}", args.flags, args.stack, args.parent_tid, args.child_tid, args.tls, args.exit_signal);
     let child_pid = clone_child(ctx, parent_context, args).unwrap();
+    debug!("child pid = {}, flags = {:?}", child_pid, args.flags);
     Ok(SyscallReturn::Return(child_pid as _))
 }
 
@@ -50,7 +51,10 @@ pub fn sys_clone3(
     debug!("clone args = {:x?}", clone_args);
 
     let child_pid = clone_child(ctx, parent_context, clone_args)?;
-    trace!("child pid = {}", child_pid);
+    debug!(
+        "clone3 child pid = {}, flags = {:x?}",
+        child_pid, clone_args.flags
+    );
     Ok(SyscallReturn::Return(child_pid as _))
 }
 

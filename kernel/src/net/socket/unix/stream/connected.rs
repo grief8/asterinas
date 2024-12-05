@@ -80,13 +80,14 @@ impl Connected {
     }
 
     pub(super) fn shutdown(&self, cmd: SockShutdownCmd) {
-        if cmd.shut_read() {
-            self.reader.shutdown();
-        }
+        debug!("Connected::shutdown: cmd = {:?}", cmd);
+        // if cmd.shut_read() {
+        //     self.reader.shutdown();
+        // }
 
-        if cmd.shut_write() {
-            self.writer.shutdown();
-        }
+        // if cmd.shut_write() {
+        //     self.writer.shutdown();
+        // }
     }
 
     pub(super) fn poll(&self, mask: IoEvents, mut poller: Option<&mut PollHandle>) -> IoEvents {
@@ -97,6 +98,13 @@ impl Connected {
         combine_io_events(mask, reader_events, writer_events)
     }
 }
+
+// impl Drop for Connected {
+//     fn drop(&mut self) {
+//         self.reader.shutdown();
+//         self.writer.shutdown();
+//     }
+// }
 
 pub(super) fn combine_io_events(
     mask: IoEvents,

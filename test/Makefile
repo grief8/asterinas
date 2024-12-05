@@ -17,7 +17,9 @@ INITRAMFS_EMPTY_DIRS := \
 	$(INITRAMFS)/tmp \
 	$(INITRAMFS)/opt \
 	$(INITRAMFS)/proc \
+	$(INITRAMFS)/sys \
 	$(INITRAMFS)/dev \
+	$(INITRAMFS)/run \
 	$(INITRAMFS)/ext2 \
 	$(INITRAMFS)/exfat
 INITRAMFS_ALL_DIRS := \
@@ -63,6 +65,16 @@ $(INITRAMFS)/lib/x86_64-linux-gnu: | $(VDSO_LIB)
 	@cp -L /lib/x86_64-linux-gnu/libsqlite3.so $@
 	@# required for VDSO
 	@cp -L $(VDSO_LIB) $@
+	@cp -L /opt/libseccomp.so.2 $@
+	@cp -L /opt/libyajl.so.2 $@
+	@cp -L /lib/x86_64-linux-gnu/libsystemd.so.0 $@
+	@cp -L /lib/x86_64-linux-gnu/libcap.so.2 $@
+	@cp -L /lib/x86_64-linux-gnu/libdl.so.2 $@
+	@cp -L /lib/x86_64-linux-gnu/liblzma.so.5 $@
+	@cp -L /lib/x86_64-linux-gnu/libzstd.so.1 $@
+	@cp -L /lib/x86_64-linux-gnu/liblz4.so.1 $@
+	@cp -L  /lib/x86_64-linux-gnu/libgcrypt.so.20 $@
+	@cp -L  /lib/x86_64-linux-gnu/libgpg-error.so.0 $@
 
 $(VDSO_LIB): | $(VDSO_DIR) $(BINARY_CACHE_DIR)/vdso64.so
 	@# TODO: use a custom compiled vdso.so file in the future.
@@ -105,6 +117,8 @@ $(INITRAMFS)/usr/local:
 .PHONY: $(INITRAMFS)/test
 $(INITRAMFS)/test:
 	@make --no-print-directory -C apps
+	@cp -r /opt/runc-hello $@
+	@cp -r /opt/runc $@
 
 $(INITRAMFS)/benchmark: | $(INITRAMFS)/benchmark/bin
 	@cp -rf $(CUR_DIR)/benchmark/* $@

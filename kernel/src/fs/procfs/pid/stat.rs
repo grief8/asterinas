@@ -26,14 +26,24 @@ impl StatFileOps {
     }
 }
 
+fn status_to_char(status: &Process) -> char {
+    if status.is_zombie() {
+        'Z'
+    } else {
+        'R'
+    }
+}
+
 impl FileOps for StatFileOps {
     fn data(&self) -> Result<Vec<u8>> {
         let process = &self.0;
         let mut stat_output = String::new();
         writeln!(
             stat_output,
-            "{} {} {} {} {} {} {}",
+            "{} ({}) {} {} {} {} {} {} {}",
+            process.pid(),
             process.executable_path(),
+            status_to_char(&process),
             process.pid(),
             process.pid(),
             process.parent().pid(),
