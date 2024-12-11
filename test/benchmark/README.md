@@ -232,6 +232,7 @@ Finally, if the new benchmark job runs successfully, we can commit the changes a
 
 The `bench_result.json` file configures how benchmark results are processed and displayed. Below is an example of the file to give you a big-picture understanding:
 
+<<<<<<< HEAD
 ```jsonc
 {
     // Configurations for performance alerts.
@@ -260,4 +261,48 @@ The `bench_result.json` file configures how benchmark results are processed and 
 }
 ```
 
+=======
+### Alert Configuration
+This section defines performance thresholds and comparison logic to monitor regressions or improvements:
+
+```jsonc
+"alert": {
+    "threshold": "130%", // Acceptable deviation (e.g., 130% = 30% higher).
+    "bigger_is_better": true // true: Higher values are better; false: Lower values are better.
+}
+```
+
+### Result Extraction
+This section specifies how benchmark outputs are parsed to extract relevant results:
+
+```jsonc
+"result_extraction": {
+    "search_pattern": "sender", // Regex or string to locate results.
+    "result_index": 7 // Match index to use (e.g., 7th occurrence).
+}
+```
+
+### Chart Configuration
+This section controls how results appear in charts:
+
+```jsonc
+"chart": {
+    "title": "[Network] iperf3 sender performance using TCP", // Chart title.
+    "description": "iperf3 -s -B 10.0.2.15", // Brief benchmark context.
+    "unit": "Mbits/sec", // Measurement unit.
+    "legend": "Average TCP Bandwidth over virtio-net between Host Linux and Guest {system}" // Chart legend with dynamic placeholder {system} supported.
+}
+```
+
+### Runtime Configuration (Optional)
+This section defines specific schemes or configurations for benchmarking:
+
+```jsonc
+"runtime_config": {
+    "aster_scheme": "iommu" // Corresponds to Makefile parameters (e.g., IOMMU support).
+}
+```
+
+
+>>>>>>> a1026395 (ss)
 By adhering to this format, we ensure clarity and consistency in benchmarking workflows and reporting systems.
