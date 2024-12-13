@@ -120,6 +120,7 @@ mod setsid;
 mod setsockopt;
 mod setuid;
 mod shutdown;
+mod signalfd;
 mod sigaltstack;
 mod socket;
 mod socketpair;
