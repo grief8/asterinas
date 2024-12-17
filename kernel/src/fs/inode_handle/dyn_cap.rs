@@ -4,10 +4,20 @@ use aster_rights::TRights;
 use inherit_methods_macro::inherit_methods;
 
 use super::*;
-use crate::{prelude::*, process::signal::Pollable};
+use crate::{
+    prelude::*,
+    process::{posix_thread::AsPosixThread, signal::Pollable},
+};
 
 impl InodeHandle<Rights> {
     pub fn new(dentry: Dentry, access_mode: AccessMode, status_flags: StatusFlags) -> Result<Self> {
+        // With root privileges, it is possible to open a file with any access mode.
+        if current_thread!()
+            .as_posix_thread()
+            .is_some_and(|posix_thread| posix_thread.credentials().euid().is_root())
+        {
+            return Self::new_unchecked_access(dentry, access_mode, status_flags);
+        }
         let inode_mode = dentry.inode().mode()?;
         if access_mode.is_readable() && !inode_mode.is_readable() {
             return_errno_with_message!(Errno::EACCES, "file is not readable");
