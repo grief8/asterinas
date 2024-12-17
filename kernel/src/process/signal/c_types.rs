@@ -6,10 +6,10 @@
 use core::mem::{self, size_of};
 
 use aster_util::{read_union_fields, union_read_ptr::UnionReadPtr};
+use ostd::cpu::{RawGeneralRegs, XSaveArea};
 
 use super::sig_num::SigNum;
 use crate::{
-    arch::cpu::GpRegs,
     prelude::*,
     process::{Pid, Uid},
 };
@@ -166,7 +166,7 @@ pub struct ucontext_t {
     pub uc_stack: stack_t,
     pub uc_mcontext: mcontext_t,
     pub uc_sigmask: sigset_t,
-    pub fpregs: [u8; 64 * 8], //fxsave structure
+    pub fpu_state: XSaveArea,
 }
 
 impl Default for ucontext_t {
@@ -177,7 +177,7 @@ impl Default for ucontext_t {
             uc_stack: Default::default(),
             uc_mcontext: Default::default(),
             uc_sigmask: Default::default(),
-            fpregs: [0u8; 64 * 8],
+            fpu_state: XSaveArea::new_zeroed(),
         }
     }
 }
@@ -196,8 +196,8 @@ pub struct sigaltstack_t {
 #[repr(C)]
 pub struct mcontext_t {
     pub inner: SignalCpuContext,
-    // TODO: the fields should be csgsfs, err, trapno, oldmask, and cr2
-    _unused0: [u64; 5],
+    // TODO: the fields should be err, trapno, oldmask, and cr2
+    _unused0: [u64; 4],
     // TODO: this field should be `fpregs: fpregset_t,`
     _unused1: usize,
     _reserved: [u64; 8],
@@ -206,9 +206,61 @@ pub struct mcontext_t {
 #[derive(Debug, Clone, Copy, Pod, Default)]
 #[repr(C)]
 pub struct SignalCpuContext {
-    pub gp_regs: GpRegs,
-    pub fpregs_on_heap: u64,
-    pub fpregs: Vaddr, // *mut FpRegs,
+    pub r8: usize,
+    pub r9: usize,
+    pub r10: usize,
+    pub r11: usize,
+    pub r12: usize,
+    pub r13: usize,
+    pub r14: usize,
+    pub r15: usize,
+    pub rdi: usize,
+    pub rsi: usize,
+    pub rbp: usize,
+    pub rbx: usize,
+    pub rdx: usize,
+    pub rax: usize,
+    pub rcx: usize,
+    pub rsp: usize,
+    pub rip: usize,
+    pub rflags: usize,
+
+    pub cs: u16,
+    pub gs: u16,
+    pub fs: u16,
+    pub ss: u16,
+}
+
+macro_rules! copy_gp_regs {
+    ($src: ident, $dst: ident, [$($field: ident,)*]) => {
+        $(
+            $dst.$field = $src.$field;
+        )*
+    };
+}
+
+impl SignalCpuContext {
+    pub fn copy_from_raw(&mut self, regs: &RawGeneralRegs) {
+        copy_gp_regs!(
+            regs,
+            self,
+            [
+                r8, r9, r10, r11, r12, r13, r14, r15, rdi, rsi, rbp, rbx, rdx, rax, rcx, rsp, rip,
+                rflags,
+            ]
+        );
+    }
+
+    pub fn copy_to_raw(&self, regs: &mut RawGeneralRegs) {
+        copy_gp_regs!(
+            self,
+            regs,
+            [
+                r8, r9, r10, r11, r12, r13, r14, r15, rdi, rsi, rbp, rbx, rdx, rax, rcx, rsp, rip,
+                rflags,
+            ]
+        );
+    }
 }
 
 #[derive(Clone, Copy, Pod)]

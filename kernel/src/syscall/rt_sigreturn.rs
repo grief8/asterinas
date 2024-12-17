@@ -43,8 +43,8 @@ pub fn sys_rt_sigreturn(ctx: &Context, user_ctx: &mut UserContext) -> Result<Sys
     ucontext
         .uc_mcontext
         .inner
-        .gp_regs
         .copy_to_raw(user_ctx.general_regs_mut());
+    ctx.task.restore_fpu_from_signal_area(&ucontext.fpu_state);
     // unblock sig mask
     let sig_mask = ucontext.uc_sigmask;
     let old_mask = posix_thread.sig_mask().load(Ordering::Relaxed);

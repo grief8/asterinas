@@ -175,7 +175,6 @@ pub fn handle_user_signal(
     ucontext
         .uc_mcontext
         .inner
-        .gp_regs
         .copy_from_raw(user_ctx.general_regs());
     let mut sig_context = ctx.posix_thread.sig_context().lock();
     if let Some(sig_context_addr) = *sig_context {
@@ -184,6 +183,9 @@ pub fn handle_user_signal(
         ucontext.uc_link = 0;
     }
     // TODO: store fp regs in ucontext
+    ctx.task
+        .save_fpu_state_to_signal_area(&mut ucontext.fpu_state);
+
     user_space.write_val(stack_pointer as _, &ucontext)?;
     let ucontext_addr = stack_pointer;
     // Store the ucontext addr in sig context of current thread.

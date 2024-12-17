@@ -16,6 +16,7 @@ use cfg_if::cfg_if;
 use log::debug;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+use ostd_pod::Pod;
 use spin::Once;
 use x86::bits64::segmentation::wrfsbase;
 pub use x86::cpuid;
@@ -429,9 +430,9 @@ pub struct FpuState {
 }
 
 // The legacy SSE/MMX FPU state format (as saved by `FXSAVE` and restored by the `FXRSTOR` instructions).
-#[repr(C, align(16))]
-#[derive(Clone, Copy, Debug)]
-struct FxSaveArea {
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod)]
+pub struct FxSaveArea {
     control: u16,         // x87 FPU Control Word
     status: u16,          // x87 FPU Status Word
     tag: u16,             // x87 FPU Tag Word
@@ -449,9 +450,9 @@ struct FxSaveArea {
 }
 
 /// The modern FPU state format (as saved by the `XSAVE`` and restored by the `XRSTOR` instructions).
-#[repr(C, align(64))]
-#[derive(Clone, Copy, Debug)]
-struct XSaveArea {
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod)]
+pub struct XSaveArea {
     fxsave_area: FxSaveArea,
     features: u64,
     compaction: u64,
@@ -513,6 +514,24 @@ impl FpuState {
         self.is_valid.store(true, Relaxed);
 
         debug!("Save FPU state");
+    }
+
+    pub fn save_to_area(&self, area: &mut XSaveArea) {
+        self.save();
+        let src = &*self.state_area as *const _ as *const u8;
+        let dst = area as *const _ as *mut u8;
+        unsafe {
+            core::ptr::copy_nonoverlapping(src, dst, 4096);
+        }
+    }
+
+    pub fn restore_from_area(&self, area: &XSaveArea) {
+        let src = area as *const _ as *const u8;
+        let dst = &*self.state_area as *const _ as *mut u8;
+        unsafe {
+            core::ptr::copy_nonoverlapping(src, dst, 4096);
+        }
+        self.restore();
     }
 
     /// Restores CPU's FPU state from this instance.
