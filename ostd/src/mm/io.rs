@@ -950,3 +950,73 @@ const fn is_pod_once<T: Pod>() -> bool {
 
     size == 1 || size == 2 || size == 4 || size == 8
 }
+
+#[cfg(ktest)]
+mod test {
+    // use super::*;
+
+    // #[ktest]
+    // fn test_read_bytes() {
+    //     let data: &[u8] = &[1, 2, 3, 4, 5];
+    //     let mut buf = [0u8; 5];
+    //     let reader = VmReader::from(data);
+
+    //     let result = reader.read_bytes(0, &mut buf);
+    //     assert!(result.is_ok());
+    //     assert_eq!(buf, [1, 2, 3, 4, 5]);
+    // }
+
+    // #[ktest]
+    // fn test_read_val() {
+    //     let data: &[u8] = &[0, 0, 0, 1]; // Little-endian u32
+    //     let reader = VmReader::from(data);
+
+    //     let result: Result<u32> = reader.read_val(0);
+    //     assert!(result.is_ok());
+    //     assert_eq!(result.unwrap(), 1);
+    // }
+
+    // #[ktest]
+    // fn test_read_slice() {
+    //     let data: &[u8] = &[0, 0, 0, 1, 0, 0, 0, 2]; // Little-endian u32
+    //     let mut buf = [0u32; 2];
+    //     let reader = VmReader::from(data);
+
+    //     let result = reader.read_slice(0, &mut buf);
+    //     assert!(result.is_ok());
+    //     assert_eq!(buf, [1, 2]);
+    // }
+
+    // #[ktest]
+    // fn test_write_vals() {
+    //     let mut data = [0u32; 3];
+    //     let writer = VmWriter::from(&mut data);
+    //     let iter = vec![&1u32, &2u32, &3u32].into_iter();
+
+    //     let result = writer.write_vals(0, iter, 0);
+    //     assert!(result.is_ok());
+    //     assert_eq!(data, [1, 2, 3]);
+    // }
+
+    // #[ktest]
+    // fn test_vm_reader_from_kernel_space() {
+    //     let data: &[u8] = &[1, 2, 3, 4, 5];
+    //     let ptr = data.as_ptr();
+    //     let len = data.len();
+
+    //     let reader = unsafe { VmReader::<Infallible>::from_kernel_space(ptr, len) };
+    //     let mut buf = [0u8; 5];
+    //     let result = reader.read_bytes(0, &mut buf);
+    //     assert!(result.is_ok());
+    //     assert_eq!(buf, [1, 2, 3, 4, 5]);
+    // }
+    // #[ktest]
+    // fn test_vm_writer_fill() {
+    //     let mut data = [0u32; 3];
+    //     let mut writer = VmWriter::from(&mut data);
+
+    //     let result = writer.fill(42u32);
+    //     assert_eq!(result, 3);
+    //     assert_eq!(data, [42, 42, 42]);
+    // }
+}
