@@ -73,11 +73,6 @@ jobs:
           # Nginx benchmarks
           - nginx/http_req10k_conc1_bw
           - nginx/http_req10k_conc20_bw
-          # Redis benchmarks
-          - redis/ping_inline_100k_conc20_rps
-          - redis/ping_mbulk_100k_conc20_rps
-          - redis/get_100k_conc20_rps
-          - redis/set_100k_conc20_rps
           # SQLite benchmarks
           - sqlite/ext2_benchmarks
           - sqlite/ramfs_benchmarks
@@ -117,6 +112,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BENCHMARK_ARTIFACT }}
+          if-no-files-found: error
           path: |
             result_*.json
 
