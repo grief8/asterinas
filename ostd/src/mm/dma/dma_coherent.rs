@@ -289,4 +289,57 @@ mod test {
         reader.read(&mut buf_read.as_mut_slice().into());
         assert_eq!(buf_read, buf_write);
     }
+
+    #[ktest]
+    fn map_with_large_segment() {
+        let vm_segment = FrameAllocOptions::new(100)
+            .is_contiguous(true)
+            .alloc_contiguous()
+            .unwrap();
+        let dma_coherent = DmaCoherent::map(vm_segment.clone(), false).unwrap();
+        assert!(dma_coherent.paddr() == vm_segment.paddr());
+    }
+
+    #[ktest]
+    fn map_with_invalid_segment() {
+        let vm_segment = FrameAllocOptions::new(0)
+            .is_contiguous(true)
+            .alloc_contiguous();
+        assert!(vm_segment.is_err());
+    }
+
+    // #[ktest]
+    // fn map_with_non_contiguous_segment() {
+    //     let vm_segment = FrameAllocOptions::new(2)
+    //         .is_contiguous(false)
+    //         .alloc_contiguous()
+    //         .unwrap();
+    //     let dma_coherent = DmaCoherent::map(vm_segment, false);
+    //     assert!(dma_coherent.is_err());
+    // }
+
+    #[ktest]
+    fn map_with_different_cache_policies() {
+        let vm_segment_coherent = FrameAllocOptions::new(1)
+            .is_contiguous(true)
+            .alloc_contiguous()
+            .unwrap();
+        let vm_segment_incoherent = FrameAllocOptions::new(1)
+            .is_contiguous(true)
+            .alloc_contiguous()
+            .unwrap();
+
+        let dma_coherent_coherent = DmaCoherent::map(vm_segment_coherent.clone(), true).unwrap();
+        let dma_coherent_incoherent = DmaCoherent::map(vm_segment_incoherent.clone(), false).unwrap();
+
+        assert!(dma_coherent_coherent.paddr() == vm_segment_coherent.paddr());
+        assert!(dma_coherent_incoherent.paddr() == vm_segment_incoherent.paddr());
+
+        let page_table = KERNEL_PAGE_TABLE.get().unwrap();
+        let vaddr_coherent = paddr_to_vaddr(vm_segment_coherent.paddr());
+        let vaddr_incoherent = paddr_to_vaddr(vm_segment_incoherent.paddr());
+
+        assert!(page_table.query(vaddr_coherent).unwrap().1.cache == CachePolicy::Writeback);
+        assert!(page_table.query(vaddr_incoherent).unwrap().1.cache == CachePolicy::Uncacheable);
+    }
 }

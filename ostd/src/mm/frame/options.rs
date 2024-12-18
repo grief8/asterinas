@@ -131,3 +131,70 @@ fn test_alloc_dealloc() {
         remember_vec.pop();
     }
 }
+
+#[cfg(ktest)]
+#[ktest]
+fn test_frame_read_write() {
+    let options = FrameAllocOptions::new(1);
+    let frame = options.alloc_single().unwrap();
+
+    // Write data to the frame
+    let data = [1u8, 2, 3, 4];
+    frame.writer().write(&mut data.as_slice().into());
+
+    // Read data from the frame
+    let mut buffer = [0u8; 4];
+    frame.reader().read(&mut buffer.as_mut_slice().into());
+
+    assert_eq!(buffer, data);
+}
+
+#[cfg(ktest)]
+#[ktest]
+fn test_segment_read_write() {
+    let segment = FrameAllocOptions::new(2).is_contiguous(true).alloc_contiguous().unwrap();
+
+    // Write data to the segment
+    let data = [1u8, 2, 3, 4, 5, 6, 7, 8];
+    segment.writer().write(&mut data.as_slice().into());
+
+    // Read data from the segment
+    let mut buffer = [0u8; 8];
+    segment.reader().read(&mut buffer.as_mut_slice().into());
+
+    assert_eq!(buffer, data);
+}
+
+#[cfg(ktest)]
+#[ktest]
+fn test_frame_reference_count() {
+    let frame = FrameAllocOptions::new(1).alloc_single().unwrap();
+
+    // Initial reference count should be 1
+    assert_eq!(frame.reference_count(), 1);
+
+    // Clone the frame and check reference count
+    let frame_clone = frame.clone();
+    assert_eq!(frame.reference_count(), 2);
+    assert_eq!(frame_clone.reference_count(), 2);
+
+    // Drop the clone and check reference count
+    drop(frame_clone);
+    assert_eq!(frame.reference_count(), 1);
+}
+
+#[cfg(ktest)]
+#[ktest]
+fn test_segment_split_slice() {
+    let segment = FrameAllocOptions::new(4).is_contiguous(true).alloc_contiguous().unwrap();
+
+    // Split the segment at offset 2
+    let (left, right) = segment.split(2 * PAGE_SIZE);
+
+    assert_eq!(left.nbytes(), 2 * PAGE_SIZE);
+    assert_eq!(right.nbytes(), 2 * PAGE_SIZE);
+
+    // Slice the left segment from offset 1 to 2
+    let sliced = left.slice(&(1 * PAGE_SIZE..2 * PAGE_SIZE));
+    assert_eq!(sliced.nbytes(), PAGE_SIZE);
+}
