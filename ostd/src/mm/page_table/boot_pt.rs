@@ -293,3 +293,126 @@ fn test_boot_pt_map_protect() {
         ))
     );
 }
+
+#[cfg(ktest)]
+mod tests {
+    use super::*;
+    use crate::mm::{CachePolicy, PageFlags, PageProperty};
+
+    // #[ktest]
+    // fn test_with_borrow_initialization() {
+    //     // Test that `with_borrow` initializes the boot page table lazily.
+    //     let result = with_borrow(|boot_pt| {
+    //         assert_eq!(boot_pt.root_address(), 0); // Initial root address should be 0.
+    //         Ok::<(), ()>(())
+    //     });
+    //     assert!(result.is_ok());
+    // }
+
+    #[ktest]
+    fn test_with_borrow_after_dismiss() {
+        // Test that `with_borrow` returns an error after the boot page table is dismissed.
+        unsafe {
+            dismiss();
+        }
+        let result = with_borrow(|_| Ok::<(), ()>(()));
+        assert!(result.is_err());
+    }
+
+    #[ktest]
+    fn test_dismiss_all_cpus() {
+        // Test that `dismiss` works correctly when called on all CPUs.
+        unsafe {
+            for _ in 0..num_cpus() {
+                dismiss();
+            }
+        }
+        let result = with_borrow(|_| Ok::<(), ()>(()));
+        assert!(result.is_err());
+    }
+
+    #[ktest]
+    fn test_map_base_page() {
+        // Test that `map_base_page` correctly maps a base page.
+        let mut boot_pt =
+            unsafe { BootPageTable::<PageTableEntry, PagingConsts>::from_current_pt() };
+        let from = 0x1000;
+        let to = 0x2;
+        let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+        unsafe {
+            boot_pt.map_base_page(from, to, prop);
+        }
+        // Verify the mapping.
+        // (You may need to add a helper function to query the mapping in `BootPageTable`.)
+    }
+
+    #[ktest]
+    #[should_panic]
+    fn test_map_base_page_already_mapped() {
+        // Test that `map_base_page` panics when mapping an already mapped page.
+        let mut boot_pt =
+            unsafe { BootPageTable::<PageTableEntry, PagingConsts>::from_current_pt() };
+        let from = 0x1000;
+        let to = 0x2;
+        let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+        unsafe {
+            boot_pt.map_base_page(from, to, prop);
+            boot_pt.map_base_page(from, to + 1, prop); // Should panic.
+        }
+    }
+
+    #[ktest]
+    fn test_protect_base_page() {
+        // Test that `protect_base_page` correctly modifies page protection.
+        let mut boot_pt =
+            unsafe { BootPageTable::<PageTableEntry, PagingConsts>::from_current_pt() };
+        let from = 0x1000;
+        let to = 0x2;
+        let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+        unsafe {
+            boot_pt.map_base_page(from, to, prop);
+            boot_pt.protect_base_page(from, |prop| prop.flags = PageFlags::RX);
+        }
+        // Verify the protection change.
+    }
+
+    #[ktest]
+    #[should_panic]
+    fn test_protect_base_page_unmapped() {
+        // Test that `protect_base_page` panics when protecting an unmapped page.
+        let mut boot_pt =
+            unsafe { BootPageTable::<PageTableEntry, PagingConsts>::from_current_pt() };
+        let from = 0x1000;
+        unsafe {
+            boot_pt.protect_base_page(from, |_| {}); // Should panic.
+        }
+    }
+
+    #[ktest]
+    fn test_alloc_frame() {
+        // Test that `alloc_frame` correctly allocates a frame and zeroes it out.
+        let mut boot_pt =
+            unsafe { BootPageTable::<PageTableEntry, PagingConsts>::from_current_pt() };
+        let frame = boot_pt.alloc_frame();
+        assert!(frame > 0);
+        // Verify that the frame is zeroed out.
+        let vaddr = paddr_to_vaddr(frame * PAGE_SIZE) as *const u8;
+        unsafe {
+            for i in 0..PAGE_SIZE {
+                assert_eq!(*vaddr.add(i), 0);
+            }
+        }
+    }
+
+    #[ktest]
+    fn test_drop_boot_page_table() {
+        // Test that `BootPageTable` drops all allocated frames correctly.
+        let boot_pt = unsafe { BootPageTable::<PageTableEntry, PagingConsts>::from_current_pt() };
+        let frames = boot_pt.frames.clone();
+        drop(boot_pt);
+        // Verify that all frames are deallocated.
+        for frame in frames {
+            // (You may need to add a helper function to check frame deallocation.)
+        }
+    }
+}

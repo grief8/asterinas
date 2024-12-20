@@ -293,3 +293,65 @@ fn test_untracked_large_protect_query() {
     // Since untracked mappings cannot be dropped, we just leak it here.
     let _ = ManuallyDrop::new(pt);
 }
+
+#[ktest]
+fn test_boundary_conditions() {
+    let pt = PageTable::<UserMode>::empty();
+    // Test empty range
+    let empty_range = 0..0;
+    assert!(pt.cursor_mut(&empty_range).is_err());
+    // test out of range
+    let out_of_range = MAX_USERSPACE_VADDR..MAX_USERSPACE_VADDR + PAGE_SIZE;
+    assert!(pt.cursor_mut(&out_of_range).is_err());
+    // Test for misaligned addresses
+    let unaligned_range = 1..PAGE_SIZE + 1;
+    assert!(pt.cursor_mut(&unaligned_range).is_err());
+}
+
+// #[ktest]
+// fn test_concurrent_access() {
+//     use std::{sync::Arc, thread};
+
+//     let pt = Arc::new(PageTable::<UserMode>::empty());
+
+//     let pt1 = pt.clone();
+//     let handle1 = thread::spawn(move || {
+//         let from = PAGE_SIZE..PAGE_SIZE * 2;
+//         let page = allocator::alloc_single(FrameMeta::default()).unwrap();
+//         let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+//         unsafe { pt1.cursor_mut(&from).unwrap().map(page.into(), prop) };
+//     });
+
+//     let pt2 = pt.clone();
+//     let handle2 = thread::spawn(move || {
+//         let from = PAGE_SIZE * 2..PAGE_SIZE * 4;
+//         let page = allocator::alloc_single(FrameMeta::default()).unwrap();
+//         let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+//         unsafe { pt2.cursor_mut(&from).unwrap().map(page.into(), prop) };
+//     });
+
+//     handle1.join().unwrap();
+//     handle2.join().unwrap();
+
+//     assert!(pt.query(PAGE_SIZE + 10).is_some());
+//     assert!(pt.query(PAGE_SIZE * 2 + 10).is_some());
+// }
+
+#[ktest]
+fn test_different_page_sizes() {
+    let pt = PageTable::<UserMode>::empty();
+
+    // 2MiB
+    let from = PAGE_SIZE * 512..PAGE_SIZE * 512 * 2;
+    let page = allocator::alloc_single(FrameMeta::default()).unwrap();
+    let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+    unsafe { pt.cursor_mut(&from).unwrap().map(page.into(), prop) };
+    assert!(pt.query(from.start + 10).is_some());
+
+    // 1GiB
+    let from = PAGE_SIZE * 512 * 512..PAGE_SIZE * 512 * 512 * 2;
+    let page = allocator::alloc_single(FrameMeta::default()).unwrap();
+    let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+    unsafe { pt.cursor_mut(&from).unwrap().map(page.into(), prop) };
+    assert!(pt.query(from.start + 10).is_some());
+}

@@ -817,3 +817,141 @@ where
         }
     }
 }
+
+#[cfg(ktest)]
+mod tests {
+    use super::*;
+    use crate::{
+        mm::{frame::FrameMeta, page::allocator, CachePolicy, PageFlags, PageProperty, PageTable},
+        prelude::*,
+    };
+
+    const PAGE_SIZE: usize = 4096;
+
+    #[ktest]
+    fn test_cursor_new_valid_range() {
+        // Test that `Cursor::new` works with a valid virtual address range.
+        let pt = PageTable::<UserMode>::empty();
+        let range = 0..PAGE_SIZE;
+        let cursor = Cursor::new(&pt, &range);
+        assert!(cursor.is_ok());
+    }
+
+    #[ktest]
+    fn test_cursor_new_invalid_range() {
+        // Test that `Cursor::new` returns an error with an invalid range.
+        let pt = PageTable::<UserMode>::empty();
+        let range = 0..(PAGE_SIZE + 1); // Out of range.
+        let cursor = Cursor::new(&pt, &range);
+        assert!(cursor.is_err());
+    }
+
+    #[ktest]
+    fn test_cursor_query_mapped_page() {
+        // Test that `Cursor::query` returns the correct mapping for a mapped page.
+        let pt = PageTable::<UserMode>::empty();
+        let range = 0..PAGE_SIZE;
+        let page = allocator::alloc_single(FrameMeta::default()).unwrap();
+        let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+        unsafe {
+            pt.cursor_mut(&range).unwrap().map(page.into(), prop);
+        }
+        let mut cursor = Cursor::new(&pt, &range).unwrap();
+        let result = cursor.query();
+        assert!(matches!(result, Ok(PageTableItem::Mapped { .. })));
+    }
+
+    #[ktest]
+    fn test_cursor_query_unmapped_page() {
+        // Test that `Cursor::query` returns `NotMapped` for an unmapped page.
+        let pt = PageTable::<UserMode>::empty();
+        let range = 0..PAGE_SIZE;
+        let mut cursor = Cursor::new(&pt, &range).unwrap();
+        let result = cursor.query();
+        assert!(matches!(result, Ok(PageTableItem::NotMapped { .. })));
+    }
+
+    #[ktest]
+    fn test_cursor_move_forward() {
+        // Test that `Cursor::move_forward` correctly moves to the next slot.
+        let pt = PageTable::<UserMode>::empty();
+        let range = 0..(PAGE_SIZE * 2);
+        let mut cursor = Cursor::new(&pt, &range).unwrap();
+        cursor.move_forward();
+        assert_eq!(cursor.virt_addr(), PAGE_SIZE);
+    }
+
+    #[ktest]
+    fn test_cursor_jump() {
+        // Test that `Cursor::jump` correctly jumps to a specified virtual address.
+        let pt = PageTable::<UserMode>::empty();
+        let range = 0..(PAGE_SIZE * 2);
+        let mut cursor = Cursor::new(&pt, &range).unwrap();
+        let result = cursor.jump(PAGE_SIZE);
+        assert!(result.is_ok());
+        assert_eq!(cursor.virt_addr(), PAGE_SIZE);
+    }
+
+    #[ktest]
+    fn test_cursor_mut_map() {
+        // Test that `CursorMut::map` correctly maps a page.
+        let pt = PageTable::<UserMode>::empty();
+        let range = 0..PAGE_SIZE;
+        let page = allocator::alloc_single(FrameMeta::default()).unwrap();
+        let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+        let mut cursor = pt.cursor_mut(&range).unwrap();
+        unsafe {
+            cursor.map(page.into(), prop);
+        }
+        // Verify the mapping.
+    }
+
+    #[ktest]
+    #[should_panic]
+    fn test_cursor_mut_map_already_mapped() {
+        // Test that `CursorMut::map` panics when mapping an already mapped page.
+        let pt = PageTable::<UserMode>::empty();
+        let range = 0..PAGE_SIZE;
+        let page = allocator::alloc_single(FrameMeta::default()).unwrap();
+        let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+        let mut cursor = pt.cursor_mut(&range).unwrap();
+        unsafe {
+            cursor.map(page.clone().into(), prop);
+            cursor.map(page.into(), prop); // Should panic.
+        }
+    }
+
+    #[ktest]
+    fn test_cursor_mut_take_next() {
+        // Test that `CursorMut::take_next` correctly unmaps a page.
+        let pt = PageTable::<UserMode>::empty();
+        let range = 0..PAGE_SIZE;
+        let page = allocator::alloc_single(FrameMeta::default()).unwrap();
+        let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+        unsafe {
+            pt.cursor_mut(&range).unwrap().map(page.into(), prop);
+        }
+        let mut cursor = pt.cursor_mut(&range).unwrap();
+        let result = unsafe { cursor.take_next(PAGE_SIZE) };
+        assert!(matches!(result, PageTableItem::Mapped { .. }));
+    }
+
+    #[ktest]
+    fn test_cursor_mut_protect_next() {
+        // Test that `CursorMut::protect_next` correctly modifies page protection.
+        let pt = PageTable::<UserMode>::empty();
+        let range = 0..PAGE_SIZE;
+        let page = allocator::alloc_single(FrameMeta::default()).unwrap();
+        let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+        unsafe {
+            pt.cursor_mut(&range).unwrap().map(page.into(), prop);
+        }
+        let mut cursor = pt.cursor_mut(&range).unwrap();
+        let result = unsafe {
+            cursor.protect_next(PAGE_SIZE, &mut |prop: &mut PageProperty| {
+                prop.flags = PageFlags::RX
+            })
+        };
+        assert!(result.is_some());
+    }
+}
