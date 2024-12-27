@@ -25,6 +25,9 @@ use core::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
+#[cfg(ktest)]
+mod test;
+
 pub use cont_pages::ContPages;
 use meta::{
     mapping, MetaSlot, PageMeta, PAGE_METADATA_MAX_ALIGN, PAGE_METADATA_MAX_SIZE, REF_COUNT_UNUSED,

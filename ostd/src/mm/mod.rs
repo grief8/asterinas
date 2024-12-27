@@ -115,3 +115,25 @@ pub trait HasPaddr {
 pub const fn is_page_aligned(p: usize) -> bool {
     (p & (PAGE_SIZE - 1)) == 0
 }
+
+#[cfg(ktest)]
+mod test {
+    use super::*;
+    use crate::prelude::*;
+
+    #[ktest]
+    fn test_nr_subpage_per_huge() {
+        assert_eq!(
+            nr_subpage_per_huge::<PagingConsts>(),
+            PAGE_SIZE / PagingConsts::PTE_SIZE
+        );
+    }
+
+    #[ktest]
+    fn test_is_page_aligned() {
+        assert!(is_page_aligned(0));
+        assert!(is_page_aligned(PAGE_SIZE));
+        assert!(!is_page_aligned(1));
+        assert!(!is_page_aligned(PAGE_SIZE - 1));
+    }
+}

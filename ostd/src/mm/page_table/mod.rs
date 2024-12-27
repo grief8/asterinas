@@ -15,7 +15,7 @@ mod node;
 use node::*;
 pub mod cursor;
 pub use cursor::{Cursor, CursorMut, PageTableItem};
-#[cfg(ktest)]
+// #[cfg(ktest)]
 mod test;
 
 pub(crate) mod boot_pt;
@@ -381,3 +381,128 @@ pub trait PageTableEntryTrait:
     /// like amd64 only uses a huge bit in intermediate levels.
     fn is_last(&self, level: PagingLevel) -> bool;
 }
+
+// #[cfg(ktest)]
+// mod tests {
+//     use super::*;
+//     use crate::{
+//         mm::{CachePolicy, PageFlags, PageProperty},
+//         prelude::*,
+//     };
+
+//     const PAGE_SIZE: usize = 4096;
+
+//     /// Helper function to create an empty page table.
+//     fn create_empty_page_table<M: PageTableMode>() -> PageTable<M> {
+//         PageTable::<M>::empty()
+//     }
+
+//     /// Helper function to query a mapping in the page table.
+//     fn query_mapping<M: PageTableMode>(
+//         pt: &PageTable<M>,
+//         vaddr: Vaddr,
+//     ) -> Option<(Paddr, PageProperty)> {
+//         pt.query(vaddr)
+//     }
+
+//     /// Helper function to map a range in the page table.
+//     fn map_range<M: PageTableMode>(
+//         pt: &PageTable<M>,
+//         vaddr_range: Range<Vaddr>,
+//         paddr_range: Range<Paddr>,
+//         prop: PageProperty,
+//     ) -> Result<()> {
+//         unsafe { Ok(pt.map(&vaddr_range, &paddr_range, prop)?) }
+//     }
+
+//     /// Helper function to verify that a range is correctly mapped.
+//     fn verify_mapping<M: PageTableMode>(
+//         pt: &PageTable<M>,
+//         vaddr_range: Range<Vaddr>,
+//         paddr_range: Range<Paddr>,
+//         prop: PageProperty,
+//     ) {
+//         for vaddr in vaddr_range.clone() {
+//             let (paddr, queried_prop) = query_mapping(pt, vaddr).expect("Mapping should exist");
+//             assert_eq!(paddr, paddr_range.start + (vaddr - vaddr_range.start));
+//             assert_eq!(queried_prop, prop);
+//         }
+//     }
+
+//     #[ktest]
+//     fn test_page_table_empty() {
+//         // Test that `PageTable::empty` creates an empty page table.
+//         let pt = create_empty_page_table::<UserMode>();
+//         // Verify that the root node is initialized.
+//         assert_eq!(unsafe {
+//             pt.root_paddr()
+//         }, 0); // Root address should be 0 for an empty page table.
+//     }
+
+//     #[ktest]
+//     fn test_page_table_create_user_page_table() {
+//         // Test that `PageTable::create_user_page_table` creates a user page table.
+//         let kernel_pt = create_empty_page_table::<KernelMode>();
+//         let user_pt = kernel_pt.create_user_page_table();
+//         // Verify that the user page table is created.
+//         assert_ne!(unsafe {
+//             user_pt.root_paddr()
+//         }, 0); // User page table should have a valid root address.
+//     }
+
+//     #[ktest]
+//     fn test_page_table_make_shared_tables() {
+//         // Test that `PageTable::make_shared_tables` correctly shares tables.
+//         let kernel_pt = create_empty_page_table::<KernelMode>();
+//         let start = nr_subpage_per_huge::<PagingConsts>() / 2; // Ensure start >= NR_PTES_PER_NODE / 2.
+//         let end = start + 1;
+//         kernel_pt.make_shared_tables(start..end);
+
+//         // Verify that the tables are shared.
+//         let shared_vaddr = start * page_size::<PagingConsts>(PagingConsts::NR_LEVELS - 1);
+//         let shared_paddr = unsafe {
+//             kernel_pt.root_paddr() + shared_vaddr
+//         };
+//         let (paddr, prop) = query_mapping(&kernel_pt, shared_vaddr).expect("Mapping should exist");
+//         assert_eq!(paddr, shared_paddr);
+//         assert_eq!(prop.flags, PageFlags::RW);
+//         assert_eq!(prop.cache, CachePolicy::Writeback);
+//     }
+
+//     #[ktest]
+//     fn test_page_table_protect_flush_tlb() {
+//         // Test that `PageTable::protect_flush_tlb` correctly modifies protection and flushes TLB.
+//         let kernel_pt = create_empty_page_table::<KernelMode>();
+//         let range = 0..PAGE_SIZE;
+//         let result =
+//             unsafe { kernel_pt.protect_flush_tlb(&range, |prop| prop.flags = PageFlags::RX) };
+//         assert!(result.is_ok());
+
+//         // Verify that the protection is applied.
+//         let (_, prop) = query_mapping(&kernel_pt, range.start).expect("Mapping should exist");
+//         assert_eq!(prop.flags, PageFlags::RX);
+//     }
+
+//     #[ktest]
+//     fn test_page_table_map() {
+//         // Test that `PageTable::map` correctly maps a range.
+//         let pt = create_empty_page_table::<UserMode>();
+//         let vaddr_range = 0..PAGE_SIZE;
+//         let paddr_range = 0..PAGE_SIZE;
+//         let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+//         let result = map_range(&pt, vaddr_range.clone(), paddr_range.clone(), prop);
+//         assert!(result.is_ok());
+
+//         // Verify that the range is correctly mapped.
+//         verify_mapping(&pt, vaddr_range, paddr_range, prop);
+//     }
+
+//     #[ktest]
+//     fn test_page_table_query() {
+//         // Test that `PageTable::query` correctly queries a mapping.
+//         let pt = create_empty_page_table::<UserMode>();
+//         let vaddr = 0;
+//         let result = query_mapping(&pt, vaddr);
+//         assert!(result.is_none()); // No mapping should exist initially.
+//     }
+// }

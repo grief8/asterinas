@@ -431,4 +431,33 @@ mod test {
         reader.read(&mut buf_read.as_mut_slice().into());
         assert_eq!(buf_read, buf_write);
     }
+
+    // #[ktest]
+    // fn map_with_non_contiguous_segment() {
+    //     let vm_segment = FrameAllocOptions::new(2)
+    //         .is_contiguous(false)
+    //         .alloc_contiguous()
+    //         .unwrap();
+    //     let dma_stream = DmaStream::map(vm_segment, DmaDirection::Bidirectional, false);
+    //     assert!(dma_stream.is_err());
+    // }
+
+    #[ktest]
+    fn map_with_large_segment() {
+        let vm_segment = FrameAllocOptions::new(100)
+            .is_contiguous(true)
+            .alloc_contiguous()
+            .unwrap();
+        let dma_stream =
+            DmaStream::map(vm_segment.clone(), DmaDirection::Bidirectional, false).unwrap();
+        assert!(dma_stream.paddr() == vm_segment.paddr());
+    }
+
+    #[ktest]
+    fn map_with_invalid_segment() {
+        let vm_segment = FrameAllocOptions::new(0)
+            .is_contiguous(true)
+            .alloc_contiguous();
+        assert!(vm_segment.is_err());
+    }
 }

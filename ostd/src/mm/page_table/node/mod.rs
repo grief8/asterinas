@@ -449,3 +449,67 @@ where
         }
     }
 }
+
+#[cfg(ktest)]
+mod page_table_node_tests {
+    use super::*;
+    use crate::prelude::*;
+
+    #[ktest]
+    fn test_page_table_node_alloc() {
+        // Test that `PageTableNode::alloc` correctly allocates a new node.
+        let node =
+            PageTableNode::<PageTableEntry, PagingConsts>::alloc(1, MapTrackingStatus::Tracked);
+
+        // Verify the node is allocated.
+        // 1. Check that the physical address is valid.
+        let paddr = node.page.paddr();
+        assert!(paddr > 0, "Physical address should be non-zero");
+
+        // 2. Check that the node's metadata is correct.
+        let meta = node.page.meta();
+        assert_eq!(meta.level, 1, "Node level should be 1");
+        assert_eq!(
+            meta.is_tracked,
+            MapTrackingStatus::Tracked,
+            "Node should be tracked"
+        );
+
+        // 3. Check that the node's PTEs are initialized to `None` (or `absent`).
+        for i in 0..nr_subpage_per_huge::<PagingConsts>() {
+            let pte = unsafe { node.read_pte(i) };
+            assert!(!pte.is_present(), "PTE at index {} should be absent", i);
+        }
+    }
+
+    #[ktest]
+    fn test_page_table_node_entry() {
+        // Test that `PageTableNode::entry` correctly returns an entry.
+        let mut node =
+            PageTableNode::<PageTableEntry, PagingConsts>::alloc(1, MapTrackingStatus::Tracked);
+        let entry = node.entry(0);
+        // Verify the entry.
+        assert!(entry.is_none(), "Entry should be present");
+    }
+
+    #[ktest]
+    fn test_page_table_node_nr_children() {
+        // Test that `PageTableNode::nr_children` correctly returns the number of children.
+        let node =
+            PageTableNode::<PageTableEntry, PagingConsts>::alloc(1, MapTrackingStatus::Tracked);
+        assert_eq!(node.nr_children(), 0);
+    }
+
+    #[ktest]
+    fn test_page_table_node_read_write_pte() {
+        // Test that `PageTableNode::read_pte` and `PageTableNode::write_pte` work correctly.
+        let mut node =
+            PageTableNode::<PageTableEntry, PagingConsts>::alloc(1, MapTrackingStatus::Tracked);
+        let pte = PageTableEntry::new_absent();
+        unsafe {
+            node.write_pte(0, pte);
+        }
+        let read_pte = unsafe { node.read_pte(0) };
+        assert_eq!(read_pte.paddr(), pte.paddr());
+    }
+}

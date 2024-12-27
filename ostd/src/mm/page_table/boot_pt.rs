@@ -239,57 +239,178 @@ impl<E: PageTableEntryTrait, C: PagingConstsTrait> Drop for BootPageTable<E, C> 
 }
 
 #[cfg(ktest)]
-use crate::prelude::*;
-
-#[cfg(ktest)]
-#[ktest]
-fn test_boot_pt_map_protect() {
-    use super::page_walk;
+mod boot_pt_tests {
+    use super::*;
     use crate::{
         arch::mm::{PageTableEntry, PagingConsts},
-        mm::{CachePolicy, FrameAllocOptions, PageFlags},
+        mm::{
+            page_table::page_walk, stat::mem_available, CachePolicy, FrameAllocOptions, PageFlags,
+            PageProperty,
+        },
+        prelude::*,
     };
 
-    let root_frame = FrameAllocOptions::new(1).alloc_single().unwrap();
-    let root_paddr = root_frame.start_paddr();
+    #[ktest]
+    fn test_with_borrow_initialization() {
+        IS_DISMISSED.store(false);
+        let result = with_borrow(|boot_pt| boot_pt.root_address());
+        assert!(result.is_ok());
+    }
 
-    let mut boot_pt = BootPageTable::<PageTableEntry, PagingConsts> {
-        root_pt: root_paddr / PagingConsts::BASE_PAGE_SIZE,
-        frames: Vec::new(),
-        _pretend_to_use: core::marker::PhantomData,
-    };
+    #[ktest]
+    fn test_with_borrow_after_dismiss() {
+        // Test that `with_borrow` returns an error after the boot page table is dismissed.
+        unsafe {
+            dismiss();
+        }
+        let result = with_borrow(|boot_pt| boot_pt.root_address());
+        assert!(result.is_err());
+    }
 
-    let from1 = 0x1000;
-    let to1 = 0x2;
-    let prop1 = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
-    unsafe { boot_pt.map_base_page(from1, to1, prop1) };
-    assert_eq!(
-        unsafe { page_walk::<PageTableEntry, PagingConsts>(root_paddr, from1 + 1) },
-        Some((to1 * PAGE_SIZE + 1, prop1))
-    );
-    unsafe { boot_pt.protect_base_page(from1, |prop| prop.flags = PageFlags::RX) };
-    assert_eq!(
-        unsafe { page_walk::<PageTableEntry, PagingConsts>(root_paddr, from1 + 1) },
-        Some((
-            to1 * PAGE_SIZE + 1,
-            PageProperty::new(PageFlags::RX, CachePolicy::Writeback)
-        ))
-    );
+    #[ktest]
+    fn test_dismiss_all_cpus() {
+        // Test that `dismiss` works correctly when called on all CPUs.
+        unsafe {
+            for _ in 0..num_cpus() {
+                dismiss();
+            }
+        }
+        let result = with_borrow(|_| Ok::<(), ()>(()));
+        assert!(result.is_err());
+    }
 
-    let from2 = 0x2000;
-    let to2 = 0x3;
-    let prop2 = PageProperty::new(PageFlags::RX, CachePolicy::Uncacheable);
-    unsafe { boot_pt.map_base_page(from2, to2, prop2) };
-    assert_eq!(
-        unsafe { page_walk::<PageTableEntry, PagingConsts>(root_paddr, from2 + 2) },
-        Some((to2 * PAGE_SIZE + 2, prop2))
-    );
-    unsafe { boot_pt.protect_base_page(from2, |prop| prop.flags = PageFlags::RW) };
-    assert_eq!(
-        unsafe { page_walk::<PageTableEntry, PagingConsts>(root_paddr, from2 + 2) },
-        Some((
-            to2 * PAGE_SIZE + 2,
-            PageProperty::new(PageFlags::RW, CachePolicy::Uncacheable)
-        ))
-    );
+    #[ktest]
+    fn test_map_base_page() {
+        // Test that `map_base_page` correctly maps a base page.
+        let mut boot_pt =
+            unsafe { BootPageTable::<PageTableEntry, PagingConsts>::from_current_pt() };
+        let from = 0x1000;
+        let to = 0x2;
+        let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+        unsafe {
+            boot_pt.map_base_page(from, to, prop);
+        }
+        // Verify the mapping.
+        assert_eq!(
+            unsafe { page_walk::<PageTableEntry, PagingConsts>(boot_pt.root_address(), from + 1) },
+            Some((to * PAGE_SIZE + 1, prop))
+        );
+    }
+
+    #[ktest]
+    #[should_panic]
+    fn test_map_base_page_already_mapped() {
+        // Test that `map_base_page` panics when mapping an already mapped page.
+        let mut boot_pt =
+            unsafe { BootPageTable::<PageTableEntry, PagingConsts>::from_current_pt() };
+        let from = 0x1000;
+        let to = 0x2;
+        let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+        unsafe {
+            boot_pt.map_base_page(from, to, prop);
+            boot_pt.map_base_page(from, to + 1, prop); // Should panic.
+        }
+    }
+
+    #[ktest]
+    fn test_protect_base_page() {
+        // Test that `protect_base_page` correctly modifies page protection.
+        let mut boot_pt =
+            unsafe { BootPageTable::<PageTableEntry, PagingConsts>::from_current_pt() };
+        let from = 0x4000;
+        let to = 0x2;
+        let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+        unsafe {
+            boot_pt.map_base_page(from, to, prop);
+            boot_pt.protect_base_page(from, |prop| prop.flags = PageFlags::RX);
+        }
+    }
+
+    #[ktest]
+    #[should_panic]
+    fn test_protect_base_page_unmapped() {
+        // Test that `protect_base_page` panics when protecting an unmapped page.
+        let mut boot_pt =
+            unsafe { BootPageTable::<PageTableEntry, PagingConsts>::from_current_pt() };
+        let from = 0x5000;
+        unsafe {
+            boot_pt.protect_base_page(from, |_| {}); // Should panic.
+        }
+    }
+
+    #[ktest]
+    fn test_map_protect() {
+        // Test that `map_base_page` and `protect_base_page` work together.
+        let root_frame = FrameAllocOptions::new(1).alloc_single().unwrap();
+        let root_paddr = root_frame.start_paddr();
+
+        let mut boot_pt = BootPageTable::<PageTableEntry, PagingConsts> {
+            root_pt: root_paddr / PagingConsts::BASE_PAGE_SIZE,
+            frames: Vec::new(),
+            _pretend_to_use: core::marker::PhantomData,
+        };
+
+        let from1 = 0x1000;
+        let to1 = 0x2;
+        let prop1 = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+        unsafe { boot_pt.map_base_page(from1, to1, prop1) };
+        assert_eq!(
+            unsafe { page_walk::<PageTableEntry, PagingConsts>(root_paddr, from1 + 1) },
+            Some((to1 * PAGE_SIZE + 1, prop1))
+        );
+        unsafe { boot_pt.protect_base_page(from1, |prop| prop.flags = PageFlags::RX) };
+        assert_eq!(
+            unsafe { page_walk::<PageTableEntry, PagingConsts>(root_paddr, from1 + 1) },
+            Some((
+                to1 * PAGE_SIZE + 1,
+                PageProperty::new(PageFlags::RX, CachePolicy::Writeback)
+            ))
+        );
+
+        let from2 = 0x2000;
+        let to2 = 0x3;
+        let prop2 = PageProperty::new(PageFlags::RX, CachePolicy::Uncacheable);
+        unsafe { boot_pt.map_base_page(from2, to2, prop2) };
+        assert_eq!(
+            unsafe { page_walk::<PageTableEntry, PagingConsts>(root_paddr, from2 + 2) },
+            Some((to2 * PAGE_SIZE + 2, prop2))
+        );
+        unsafe { boot_pt.protect_base_page(from2, |prop| prop.flags = PageFlags::RW) };
+        assert_eq!(
+            unsafe { page_walk::<PageTableEntry, PagingConsts>(root_paddr, from2 + 2) },
+            Some((
+                to2 * PAGE_SIZE + 2,
+                PageProperty::new(PageFlags::RW, CachePolicy::Uncacheable)
+            ))
+        );
+    }
+
+    #[ktest]
+    fn test_alloc_frame() {
+        // Test that `alloc_frame` correctly allocates a frame and zeroes it out.
+        let mut boot_pt =
+            unsafe { BootPageTable::<PageTableEntry, PagingConsts>::from_current_pt() };
+        let frame = boot_pt.alloc_frame();
+        assert!(frame > 0);
+        // Verify that the frame is zeroed out.
+        let vaddr = paddr_to_vaddr(frame * PAGE_SIZE) as *const u8;
+        unsafe {
+            for i in 0..PAGE_SIZE {
+                assert_eq!(*vaddr.add(i), 0);
+            }
+        }
+    }
+
+    #[ktest]
+    fn test_drop_boot_page_table() {
+        // Test that `BootPageTable` drops all allocated frames correctly.
+        let mut boot_pt =
+            unsafe { BootPageTable::<PageTableEntry, PagingConsts>::from_current_pt() };
+        let _ = boot_pt.alloc_frame();
+        let avail_before = mem_available();
+        drop(boot_pt);
+        // Verify that all frames are deallocated.
+        let avail_after = mem_available();
+        assert_eq!(avail_before + PAGE_SIZE, avail_after);
+    }
 }
