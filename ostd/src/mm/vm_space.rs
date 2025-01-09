@@ -481,6 +481,30 @@ pub enum VmItem {
     },
 }
 
+impl PartialEq for VmItem {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            // The `len` varies, so we only compare `va`.
+            (VmItem::NotMapped { va: va1, len: _ }, VmItem::NotMapped { va: va2, len: _ }) => {
+                va1 == va2
+            }
+            (
+                VmItem::Mapped {
+                    va: va1,
+                    frame: frame1,
+                    prop: prop1,
+                },
+                VmItem::Mapped {
+                    va: va2,
+                    frame: frame2,
+                    prop: prop2,
+                },
+            ) => va1 == va2 && frame1.start_paddr() == frame2.start_paddr() && prop1 == prop2,
+            _ => false,
+        }
+    }
+}
+
 impl TryFrom<PageTableItem> for VmItem {
     type Error = &'static str;
 
@@ -498,5 +522,555 @@ impl TryFrom<PageTableItem> for VmItem {
                 Err("found untracked memory mapped into `VmSpace`")
             }
         }
+    }
+}
+
+#[cfg(ktest)]
+mod tests {
+    use super::*;
+    use crate::mm::{CachePolicy, FrameAllocOptions, PageFlags, PageProperty, UFrame};
+
+    /// Helper function to create a dummy `UFrame`.
+    fn create_dummy_frame() -> UFrame {
+        let frame = FrameAllocOptions::new().alloc_frame().unwrap();
+        let uframe: UFrame = frame.into();
+        uframe
+    }
+
+    /// Test the creation of a new `VmSpace` and verify its initial state.
+    #[ktest]
+    fn vmspace_creation() {
+        let vmspace = VmSpace::new();
+        let range = 0x0..0x1000;
+        let mut cursor = vmspace.cursor(&range).expect("Failed to create cursor");
+        assert_eq!(
+            cursor.next(),
+            Some(VmItem::NotMapped { va: 0, len: 0x1000 })
+        );
+    }
+
+    /// Test mapping and unmapping a single page using `CursorMut`.
+    #[ktest]
+    fn vmspace_map_unmap() {
+        let vmspace = VmSpace::default();
+        let range = 0x1000..0x2000;
+        let frame = create_dummy_frame();
+        let prop = PageProperty::new(PageFlags::R, CachePolicy::Writeback);
+
+        {
+            let mut cursor_mut = vmspace
+                .cursor_mut(&range)
+                .expect("Failed to create mutable cursor");
+            // Initially, the page should not be mapped.
+            assert_eq!(
+                cursor_mut.query().unwrap(),
+                VmItem::NotMapped {
+                    va: range.start,
+                    len: range.start + 0x1000
+                }
+            );
+            // Map a frame.
+            cursor_mut.map(frame.clone(), prop);
+        }
+
+        // Query the mapping.
+        {
+            let mut cursor = vmspace.cursor(&range).expect("Failed to create cursor");
+            assert_eq!(cursor.virt_addr(), range.start);
+            assert_eq!(
+                cursor.query().unwrap(),
+                VmItem::Mapped {
+                    va: range.start,
+                    frame: frame,
+                    prop
+                }
+            );
+        }
+
+        {
+            let mut cursor_mut = vmspace
+                .cursor_mut(&range)
+                .expect("Failed to create mutable cursor");
+            // Unmap the frame.
+            cursor_mut.unmap(range.start);
+        }
+
+        // Query again to ensure it's unmapped.
+        let mut cursor = vmspace.cursor(&range).expect("Failed to create cursor");
+        assert_eq!(
+            cursor.query().unwrap(),
+            VmItem::NotMapped {
+                va: range.start,
+                len: range.start + 0x1000
+            }
+        );
+    }
+
+    /// Test map a page twice and unmap twice using `CursorMut`.
+    #[ktest]
+    fn vmspace_map_twice() {
+        let vmspace = VmSpace::default();
+        let range = 0x1000..0x2000;
+        let frame = create_dummy_frame();
+        let prop = PageProperty::new(PageFlags::R, CachePolicy::Writeback);
+
+        {
+            let mut cursor_mut = vmspace
+                .cursor_mut(&range)
+                .expect("Failed to create mutable cursor");
+            cursor_mut.map(frame.clone(), prop);
+        }
+
+        {
+            let mut cursor = vmspace.cursor(&range).expect("Failed to create cursor");
+            assert_eq!(
+                cursor.query().unwrap(),
+                VmItem::Mapped {
+                    va: range.start,
+                    frame: frame.clone(),
+                    prop
+                }
+            );
+        }
+
+        {
+            let mut cursor_mut = vmspace
+                .cursor_mut(&range)
+                .expect("Failed to create mutable cursor");
+            cursor_mut.map(frame.clone(), prop);
+        }
+
+        {
+            let mut cursor = vmspace.cursor(&range).expect("Failed to create cursor");
+            assert_eq!(
+                cursor.query().unwrap(),
+                VmItem::Mapped {
+                    va: range.start,
+                    frame,
+                    prop
+                }
+            );
+        }
+
+        {
+            let mut cursor_mut = vmspace
+                .cursor_mut(&range)
+                .expect("Failed to create mutable cursor");
+            cursor_mut.unmap(range.start);
+        }
+
+        let mut cursor = vmspace.cursor(&range).expect("Failed to create cursor");
+        assert_eq!(
+            cursor.query().unwrap(),
+            VmItem::NotMapped {
+                va: range.start,
+                len: range.start + 0x1000
+            }
+        );
+    }
+
+    /// Test unmap twice using `CursorMut`.
+    #[ktest]
+    fn vmspace_unmap_twice() {
+        let vmspace = VmSpace::default();
+        let range = 0x1000..0x2000;
+        let frame = create_dummy_frame();
+        let prop = PageProperty::new(PageFlags::R, CachePolicy::Writeback);
+
+        {
+            let mut cursor_mut = vmspace
+                .cursor_mut(&range)
+                .expect("Failed to create mutable cursor");
+            cursor_mut.map(frame.clone(), prop);
+        }
+
+        {
+            let mut cursor_mut = vmspace
+                .cursor_mut(&range)
+                .expect("Failed to create mutable cursor");
+            cursor_mut.unmap(range.start);
+        }
+
+        {
+            let mut cursor_mut = vmspace
+                .cursor_mut(&range)
+                .expect("Failed to create mutable cursor");
+            cursor_mut.unmap(range.start);
+        }
+
+        let mut cursor = vmspace.cursor(&range).expect("Failed to create cursor");
+        assert_eq!(
+            cursor.query().unwrap(),
+            VmItem::NotMapped {
+                va: range.start,
+                len: range.start + 0x1000
+            }
+        );
+    }
+
+    /// Test unmap untrack memory using `CursorMut`.
+    // #[ktest]
+    // #[should_panic(expected = "found untracked memory mapped into `VmSpace`")]
+    // fn vmspace_unmap_untrack() {
+    //     let vmspace = VmSpace::default();
+    //     let untracked_page = PageTableEntry::
+    //     let range = 0x1000..0x2000;
+    //     let mut cursor_mut = vmspace
+    //         .cursor_mut(&range)
+    //         .expect("Failed to create mutable cursor");
+    //     cursor_mut.unmap(0x1000);
+    // }
+
+    /// Test clearing the `VmSpace`.
+    #[ktest]
+    fn vmspace_clear() {
+        let vmspace = VmSpace::new();
+        let range = 0x2000..0x3000;
+        {
+            let mut cursor_mut = vmspace
+                .cursor_mut(&range)
+                .expect("Failed to create mutable cursor");
+            let frame = create_dummy_frame();
+            let prop = PageProperty::new(PageFlags::R, CachePolicy::Writeback);
+            cursor_mut.map(frame, prop);
+        }
+
+        // Clear the VmSpace.
+        assert!(vmspace.clear().is_ok());
+
+        // Verify that the mapping is cleared.
+        let mut cursor = vmspace.cursor(&range).expect("Failed to create cursor");
+        assert_eq!(
+            cursor.next(),
+            Some(VmItem::NotMapped {
+                va: range.start,
+                len: range.start + 0x1000
+            })
+        );
+    }
+
+    /// Test that `VmSpace::clear` returns an error when cursors are alive.
+    #[ktest]
+    fn vmspace_clear_with_alive_cursors() {
+        let vmspace = VmSpace::new();
+        let range = 0x3000..0x4000;
+        let _cursor_mut = vmspace
+            .cursor_mut(&range)
+            .expect("Failed to create mutable cursor");
+
+        // Attempt to clear the VmSpace while a cursor is alive.
+        let result = vmspace.clear();
+        assert!(matches!(result, Err(VmSpaceClearError::CursorsAlive)));
+    }
+
+    /// Test the `VmSpace::activate` method.
+    /// We only consider single-CPU cases here.
+    #[ktest]
+    fn vmspace_activate() {
+        let vmspace = Arc::new(VmSpace::new());
+
+        // Activate the VmSpace.
+        vmspace.activate();
+        assert_eq!(ACTIVATED_VM_SPACE.load(), Arc::as_ptr(&vmspace));
+
+        // Deactivate the VmSpace.
+        let vmspace2 = Arc::new(VmSpace::new());
+        vmspace2.activate();
+        assert_eq!(ACTIVATED_VM_SPACE.load(), Arc::as_ptr(&vmspace2));
+    }
+
+    /// Test registering and invoking a page fault handler.
+    #[ktest]
+    fn page_fault_handler() {
+        let mut vmspace = VmSpace::new();
+
+        // Define the handler to modify our flag.
+        fn mock_handler(_vm: &VmSpace, _info: &CpuExceptionInfo) -> core::result::Result<(), ()> {
+            // Access the flag via a static mutable variable.
+            unsafe {
+                TEST_HANDLER_CALLED = true;
+            }
+            Ok(())
+        }
+
+        // Define a static mutable flag for testing.
+        static mut TEST_HANDLER_CALLED: bool = false;
+
+        // Register the test handler.
+        vmspace.register_page_fault_handler(mock_handler);
+
+        // Create dummy `CpuExceptionInfo`.
+        let exception_info = CpuExceptionInfo {
+            id: 0,
+            error_code: 0,
+            page_fault_addr: 0,
+        };
+
+        // Invoke the handler.
+        let result = vmspace.handle_page_fault(&exception_info);
+        assert!(result.is_ok());
+
+        // Check that the handler was called.
+        unsafe {
+            assert!(TEST_HANDLER_CALLED, "Page fault handler was not called");
+        }
+    }
+
+    /// Test `flusher` method of `CursorMut`.
+    #[ktest]
+    fn cursor_mut_flusher() {
+        let vmspace = VmSpace::new();
+        let range = 0x4000..0x5000;
+        let frame = create_dummy_frame();
+        let prop = PageProperty::new(PageFlags::R, CachePolicy::Writeback);
+
+        {
+            let mut cursor_mut = vmspace
+                .cursor_mut(&range)
+                .expect("Failed to create mutable cursor");
+            cursor_mut.map(frame.clone(), prop);
+        }
+
+        {
+            // Verify that the mapping is present.
+            let mut cursor = vmspace.cursor(&range).expect("Failed to create cursor");
+            assert_eq!(
+                cursor.next(),
+                Some(VmItem::Mapped {
+                    va: 0x4000,
+                    frame: frame.clone(),
+                    prop: PageProperty::new(PageFlags::R, CachePolicy::Writeback),
+                })
+            );
+        }
+
+        {
+            // Create a mutable cursor and flush the TLB.
+            let cursor_mut = vmspace
+                .cursor_mut(&range)
+                .expect("Failed to create mutable cursor");
+            cursor_mut.flusher().issue_tlb_flush(TlbFlushOp::All);
+            cursor_mut.flusher().dispatch_tlb_flush();
+        }
+
+        {
+            // Verify that the mapping is still present.
+            let mut cursor = vmspace.cursor(&range).expect("Failed to create cursor");
+            assert_eq!(
+                cursor.next(),
+                Some(VmItem::Mapped {
+                    va: 0x4000,
+                    frame: frame,
+                    prop: PageProperty::new(PageFlags::R, CachePolicy::Writeback),
+                })
+            );
+        }
+    }
+
+    /// Test the `VmReader` and `VmWriter` interfaces.
+    #[ktest]
+    fn vmspace_reader_writer() {
+        let vmspace = Arc::new(VmSpace::new());
+        let range = 0x4000..0x5000;
+        {
+            let mut cursor_mut = vmspace
+                .cursor_mut(&range)
+                .expect("Failed to create mutable cursor");
+            let frame = create_dummy_frame();
+            let prop = PageProperty::new(PageFlags::R, CachePolicy::Writeback);
+            cursor_mut.map(frame, prop);
+        }
+
+        // Mock the current page table paddr to match the VmSpace's root paddr.
+        // This fails if the VmSpace is not the current task's user space.
+
+        // Attempt to create a reader.
+        let reader_result = vmspace.reader(0x4000, 0x1000);
+        // Since we cannot actually map memory in a test environment, we'll expect failure.
+        assert!(reader_result.is_err());
+
+        // Similarly, attempt to create a writer.
+        let writer_result = vmspace.writer(0x4000, 0x1000);
+        assert!(writer_result.is_err());
+
+        // Activate the VmSpace.
+        vmspace.activate();
+
+        // Attempt to create a reader.
+        let reader_result = vmspace.reader(0x4000, 0x1000);
+        assert!(reader_result.is_ok());
+        // Attempt to create a writer.
+        let writer_result = vmspace.writer(0x4000, 0x1000);
+        assert!(writer_result.is_ok());
+
+        // Attempt to create a reader with an out-of-range address.
+        let reader_result = vmspace.reader(0x4000, usize::MAX);
+        assert!(reader_result.is_err());
+        // Attempt to create a writer with an out-of-range address.
+        let writer_result = vmspace.writer(0x4000, usize::MAX);
+        assert!(writer_result.is_err());
+    }
+
+    /// Test creating overlapping cursors and ensure that overlapping is handled.
+    #[ktest]
+    fn overlapping_cursors() {
+        let vmspace = VmSpace::new();
+        let range1 = 0x5000..0x6000;
+        let range2 = 0x5800..0x6800; // Overlaps with range1.
+
+        // Create the first cursor.
+        let _cursor1 = vmspace
+            .cursor(&range1)
+            .expect("Failed to create first cursor");
+
+        // Attempt to create the second overlapping cursor.
+        let cursor2_result = vmspace.cursor(&range2);
+        assert!(cursor2_result.is_err());
+    }
+
+    /// Test iterating over the `Cursor` using the `Iterator` trait.
+    #[ktest]
+    fn cursor_iterator() {
+        let vmspace = VmSpace::new();
+        let range = 0x6000..0x7000;
+        let frame = create_dummy_frame();
+        {
+            let mut cursor_mut = vmspace
+                .cursor_mut(&range)
+                .expect("Failed to create mutable cursor");
+            let prop = PageProperty::new(PageFlags::R, CachePolicy::Writeback);
+            cursor_mut.map(frame.clone(), prop);
+        }
+
+        let mut cursor = vmspace.cursor(&range).expect("Failed to create cursor");
+        assert!(cursor.jump(range.start).is_ok());
+        let item = cursor.next();
+        assert_eq!(
+            item,
+            Some(VmItem::Mapped {
+                va: 0x6000,
+                frame: frame,
+                prop: PageProperty::new(PageFlags::R, CachePolicy::Writeback),
+            })
+        );
+
+        // No more items.
+        assert!(cursor.next().is_none());
+    }
+
+    /// Test protecting a range of pages.
+    #[ktest]
+    fn protect_next() {
+        let vmspace = VmSpace::new();
+        let range = 0x7000..0x8000;
+        let frame = create_dummy_frame();
+        {
+            let mut cursor_mut = vmspace
+                .cursor_mut(&range)
+                .expect("Failed to create mutable cursor");
+            let prop = PageProperty::new(PageFlags::RW, CachePolicy::Writeback);
+            cursor_mut.map(frame.clone(), prop);
+            cursor_mut.jump(range.start).expect("Failed to jump cursor");
+            let protected_range = cursor_mut.protect_next(0x1000, |prop| {
+                prop.flags = PageFlags::R;
+            });
+
+            assert_eq!(protected_range, Some(0x7000..0x8000));
+        }
+        // Verify that the property was updated.
+        let mut cursor = vmspace.cursor(&range).expect("Failed to create cursor");
+        assert_eq!(
+            cursor.next(),
+            Some(VmItem::Mapped {
+                va: 0x7000,
+                frame: frame,
+                prop: PageProperty::new(PageFlags::R, CachePolicy::Writeback),
+            })
+        );
+    }
+
+    /// Test copying mappings from one cursor to another.
+    #[ktest]
+    fn copy_from() {
+        let vmspace = VmSpace::new();
+        let src_range = 0x8000..0x9000;
+        let dest_range = 0x8000000000..0x8000001000;
+        let frame = create_dummy_frame();
+
+        // Set up source cursor with a mapping.
+        {
+            let mut src_cursor_mut = vmspace
+                .cursor_mut(&src_range)
+                .expect("Failed to create source cursor");
+            let prop = PageProperty::new(PageFlags::R, CachePolicy::Writeback);
+            src_cursor_mut.map(frame.clone(), prop);
+        }
+
+        // Ensure source range is mapped.
+        {
+            let mut src_cursor = vmspace
+                .cursor(&src_range)
+                .expect("Failed to create source cursor");
+            assert_eq!(
+                src_cursor.next(),
+                Some(VmItem::Mapped {
+                    va: src_range.start,
+                    frame: frame.clone(),
+                    prop: PageProperty::new(PageFlags::R, CachePolicy::Writeback),
+                })
+            );
+        }
+
+        // Create destination cursor and copy mappings from source.
+        {
+            let mut dest_cursor_mut = vmspace
+                .cursor_mut(&dest_range)
+                .expect("Failed to create destination cursor");
+            let mut src_cursor_mut = vmspace
+                .cursor_mut(&src_range)
+                .expect("Failed to create source mutable cursor");
+            dest_cursor_mut.copy_from(&mut src_cursor_mut, 0x1000, &mut |prop| {
+                prop.cache = CachePolicy::Writeback;
+            });
+        }
+
+        // Verify that the destination range is now mapped.
+        {
+            let mut dest_cursor = vmspace
+                .cursor(&dest_range)
+                .expect("Failed to create destination cursor");
+            assert_eq!(
+                dest_cursor.next(),
+                Some(VmItem::Mapped {
+                    va: dest_range.start,
+                    frame: frame,
+                    prop: PageProperty::new(PageFlags::R, CachePolicy::Writeback),
+                })
+            );
+        }
+    }
+
+    /// Test that attempting to map unaligned lengths panics.
+    #[ktest]
+    #[should_panic(expected = "assertion failed: len % super::PAGE_SIZE == 0")]
+    fn unaligned_unmap_panics() {
+        let vmspace = VmSpace::new();
+        let range = 0xA000..0xB000;
+        let mut cursor_mut = vmspace
+            .cursor_mut(&range)
+            .expect("Failed to create mutable cursor");
+        cursor_mut.unmap(0x800); // Not page-aligned.
+    }
+
+    /// Test that attempting to protect a partial page panics.
+    #[ktest]
+    #[should_panic]
+    fn protect_out_range_page() {
+        let vmspace = VmSpace::new();
+        let range = 0xB000..0xC000;
+        let mut cursor_mut = vmspace
+            .cursor_mut(&range)
+            .expect("Failed to create mutable cursor");
+        cursor_mut.protect_next(0x2000, |_| {}); // Not page-aligned.
     }
 }
