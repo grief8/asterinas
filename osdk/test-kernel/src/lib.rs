@@ -142,6 +142,10 @@ fn run_crate_ktests(crate_: &KtestCrate, whitelist: &Option<SuffixTrie>) -> Ktes
     let mut filtered: usize = 0;
     let mut failed_tests: Vec<(KtestItem, KtestError)> = Vec::new();
     for module in crate_.iter() {
+        early_println!(
+            "timestamp: {}",
+            ostd::arch::read_tsc()
+        );
         for test in module.iter() {
             if let Some(trie) = whitelist {
                 let mut test_path = KtestPath::from(test.info().module_path);

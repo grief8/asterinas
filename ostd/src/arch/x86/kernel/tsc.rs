@@ -14,8 +14,7 @@ use crate::{
     arch::timer::{
         pit::{self, OperatingMode},
         TIMER_FREQ,
-    },
-    trap::{IrqLine, TrapFrame},
+    }, early_print, trap::{IrqLine, TrapFrame}
 };
 
 /// The frequency of TSC(Hz)
@@ -26,6 +25,7 @@ pub fn init_tsc_freq() {
         determine_tsc_freq_via_cpuid().map_or_else(determine_tsc_freq_via_pit, |freq| freq);
     TSC_FREQ.store(tsc_freq, Ordering::Relaxed);
     info!("TSC frequency:{:?} Hz", tsc_freq);
+    early_print!("TSC frequency:{:?} Hz", tsc_freq);
 }
 
 /// Determines TSC frequency via CPUID. If the CPU does not support calculating TSC frequency by
