@@ -289,3 +289,31 @@ impl Heap {
         self.total_bytes() - self.used_bytes()
     }
 }
+
+// #[cfg(ktest)]
+// mod test {
+//     use crate::mm::PAGE_SIZE;
+//     use crate::mm::heap_allocator::INIT_KERNEL_HEAP_SIZE;
+//     use super::*;
+//     use crate::prelude::ktest;
+//     #[ktest]
+//     fn stat() {
+//         unsafe {
+//             let heap = Heap::new(0, PAGE_SIZE * 8);
+    
+//             let layout: Layout = Layout::from_size_align(16, 8).unwrap();
+//             let size = heap.usable_size(layout);
+//             assert_eq!(size.0, 16);
+        
+//             let total_bytes = heap.total_bytes();
+//             assert_eq!(total_bytes, PAGE_SIZE * 8);
+        
+//             let used_bytes = heap.used_bytes();
+//             assert_eq!(used_bytes, 16);
+        
+//             let available_bytes = heap.available_bytes();
+//             assert_eq!(available_bytes, PAGE_SIZE * 8 - 16);
+//         }
+        
+//     }
+// }
