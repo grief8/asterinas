@@ -1,10 +1,11 @@
 // test.rs
 
-use super::*;
 use core::alloc::Layout;
-use crate::prelude::*;
 
-#[ktest] 
+use super::{Heap, *};
+use crate::{mm::page_allocator::PAGE_SIZE, prelude::*};
+
+#[ktest]
 fn test_heap_initialization() {
     unsafe {
         // Initialize the heap allocator
@@ -15,25 +16,13 @@ fn test_heap_initialization() {
     }
 }
 
-#[ktest] 
+#[ktest]
 fn test_locked_heap_with_rescue_new() {
     let locked_heap = LockedHeapWithRescue::new();
     assert!(locked_heap.heap.get().is_none());
 }
 
-// #[ktest] 
-// fn test_locked_heap_with_rescue_init() {
-//     let locked_heap = LockedHeapWithRescue::new();
-//     const HEAP_SIZE: usize = PAGE_SIZE * 256;
-//     let mut heap_space = [0u8; HEAP_SIZE];
-
-//     unsafe {
-//         locked_heap.init(heap_space.as_mut_ptr(), HEAP_SIZE);
-//         assert!(locked_heap.heap.get().is_some());
-//     }
-// }
-
-#[ktest] 
+#[ktest]
 fn test_locked_heap_with_rescue_alloc() {
     unsafe {
         init();
@@ -50,7 +39,7 @@ fn test_locked_heap_with_rescue_alloc() {
     }
 }
 
-#[ktest] 
+#[ktest]
 fn test_locked_heap_with_rescue_dealloc() {
     unsafe {
         init();
@@ -71,7 +60,7 @@ fn test_locked_heap_with_rescue_dealloc() {
     }
 }
 
-#[ktest] 
+#[ktest]
 fn test_locked_heap_with_rescue_rescue() {
     unsafe {
         init();
@@ -88,66 +77,23 @@ fn test_locked_heap_with_rescue_rescue() {
     }
 }
 
-// #[ktest]
-// fn alloc_stat() {
-//     unsafe {
-//         init(); 
-//         HEAP_ALLOCATOR.stat();
-//     }
-// }
+#[ktest]
+fn heap_stat() {
+    unsafe {
+        let mut buffer = InitHeapSpace([0u8; PAGE_SIZE * 8]);
+        let mut heap = Heap::new(buffer.0.as_mut_ptr() as usize, PAGE_SIZE * 8);
 
-// #[ktest]
-// fn used_bytes() {
-//     unsafe {
-//         init();
+        let layout: Layout = Layout::from_size_align(16, 8).unwrap();
+        let size = heap.usable_size(layout);
+        assert_eq!(size.0, 16);
 
-        
-//     }
-// }
-// #[ktest] 
-// fn test_locked_heap_with_rescue_rescue_if_low_memory() {
-//     unsafe {
-//         init();
+        let total_bytes = heap.total_bytes();
+        assert_eq!(total_bytes, PAGE_SIZE * 8);
 
-//         // Allocate memory until the heap is nearly exhausted
-//         let layout = Layout::from_size_align(PAGE_SIZE, PAGE_SIZE).unwrap();
-//         let mut ptrs = Vec::new();
-//         loop {
-//             let ptr = HEAP_ALLOCATOR.alloc(layout);
-//             if ptr.is_null() {
-//                 break;
-//             }
-//             ptrs.push(ptr);
-//         }
+        let used_bytes = heap.used_bytes();
+        assert_eq!(used_bytes, 0);
 
-//         // Verify that the rescue mechanism was triggered
-//         assert!(ptrs.len() > 0);
-
-//         // Deallocate all allocated memory
-//         for ptr in ptrs {
-//             HEAP_ALLOCATOR.dealloc(ptr, layout);
-//         }
-//     }
-// }
-
-// #[ktest] 
-// fn test_locked_heap_with_rescue_add_to_heap() {
-//     unsafe {
-//         init();
-
-//         // Allocate additional memory and add it to the heap
-//         const ADDITIONAL_HEAP_SIZE: usize = PAGE_SIZE * 128;
-//         let additional_heap_space = [0u8; ADDITIONAL_HEAP_SIZE];
-//         HEAP_ALLOCATOR.add_to_heap(additional_heap_space.as_ptr() as usize, ADDITIONAL_HEAP_SIZE);
-
-//         // Allocate a small chunk of memory from the additional heap space
-//         let layout = Layout::from_size_align(16, 8).unwrap();
-//         let ptr = HEAP_ALLOCATOR.alloc(layout);
-
-//         // Verify that the allocation was successful
-//         assert!(!ptr.is_null());
-
-//         // Deallocate the memory
-//         HEAP_ALLOCATOR.dealloc(ptr, layout);
-//     }
-// }
+        let available_bytes = heap.available_bytes();
+        assert_eq!(available_bytes, PAGE_SIZE * 8);
+    }
+}

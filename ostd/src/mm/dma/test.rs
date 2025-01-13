@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
+use alloc::vec;
+
 use crate::{
-    mm::{dma::*, FrameAllocOptions, PAGE_SIZE},
+    mm::{dma::*, io::VmIo, FrameAllocOptions, HasPaddr, PAGE_SIZE},
     prelude::*,
 };
-use crate::mm::io::VmIo;
-use crate::mm::HasPaddr;
-use alloc::vec;
 
 #[ktest]
 fn test_dma_coherent_map() {
@@ -77,7 +76,8 @@ fn test_dma_stream_map() {
     let segment = FrameAllocOptions::new()
         .alloc_segment_with(1, |_| ())
         .unwrap();
-    let dma_stream = DmaStream::map(segment.clone().into(), DmaDirection::Bidirectional, true).unwrap();
+    let dma_stream =
+        DmaStream::map(segment.clone().into(), DmaDirection::Bidirectional, true).unwrap();
     assert_eq!(dma_stream.paddr(), segment.start_paddr());
     assert_eq!(dma_stream.nbytes(), PAGE_SIZE);
     assert_eq!(dma_stream.direction(), DmaDirection::Bidirectional);
@@ -89,7 +89,8 @@ fn test_dma_stream_duplicate_map() {
         .alloc_segment_with(2, |_| ())
         .unwrap();
     let segment_child = segment_parent.slice(&(0..PAGE_SIZE));
-    let dma_stream_parent = DmaStream::map(segment_parent.into(), DmaDirection::Bidirectional, false).unwrap();
+    let dma_stream_parent =
+        DmaStream::map(segment_parent.into(), DmaDirection::Bidirectional, false).unwrap();
     let dma_stream_child = DmaStream::map(segment_child.into(), DmaDirection::Bidirectional, false);
     assert!(dma_stream_child.is_err());
 }

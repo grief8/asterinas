@@ -278,6 +278,10 @@ pub(crate) fn init() -> Segment<MetaPageMeta> {
             // SAFETY: we are doing the metadata mappings for the kernel.
             unsafe { boot_pt.map_base_page(vaddr, frame_paddr / PAGE_SIZE, prop) };
         }
+
+        unsafe {
+            boot_pt.protect_base_page(0xffffffff_80000000, |prop| prop.flags = PageFlags::RX)
+        };
     })
     .unwrap();
 
