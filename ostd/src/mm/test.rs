@@ -21,7 +21,7 @@ use crate::{
 mod io {
     use super::*;
 
-    // A dummy Pod struct for testing complex types.
+    /// A dummy Pod struct for testing complex types.
     #[repr(C)]
     #[derive(Clone, Copy, PartialEq, Debug, Pod)]
     pub struct TestPodStruct {
@@ -668,30 +668,6 @@ mod page_prop {
         assert!(debug_str.contains("DIRTY"));
         assert!(debug_str.contains("WriteProtected"));
     }
-
-    // /// Test the Clone and Copy traits for `PageFlags`.
-    // #[ktest]
-    // fn page_flags_clone_copy() {
-    //     let flags = PageFlags::R | PageFlags::X;
-    //     let cloned_flags = flags.clone();
-    //     let copied_flags = flags;
-
-    //     assert_eq!(flags, cloned_flags);
-    //     assert_eq!(flags, copied_flags);
-    // }
-
-    // /// Test the Clone and Copy traits for `PageProperty`.
-    // #[ktest]
-    // fn page_property_clone_copy() {
-    //     let flags = PageFlags::RX;
-    //     let cache = CachePolicy::Writethrough;
-    //     let page_property1 = PageProperty::new(flags, cache);
-    //     let page_property2 = page_property1.clone();
-    //     let page_property3 = page_property1;
-
-    //     assert_eq!(page_property1, page_property2);
-    //     assert_eq!(page_property1, page_property3);
-    // }
 
     /// Test the PartialEq and Eq implementations for `PageProperty`.
     #[ktest]
