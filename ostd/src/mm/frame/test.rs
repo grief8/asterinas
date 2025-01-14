@@ -124,8 +124,6 @@ mod segment {
             .alloc_segment(range.len() / PAGE_SIZE)
             .expect("Failed to allocate segment");
         assert_eq!(segment.size(), range.len());
-        // assert_eq!(segment.start_paddr(), range.start);
-        // assert_eq!(segment.end_paddr(), range.end);
     }
 
     #[ktest]

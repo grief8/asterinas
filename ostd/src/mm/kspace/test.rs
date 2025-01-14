@@ -12,8 +12,9 @@ use crate::{
     },
     prelude::*,
 };
+
 #[ktest]
-fn test_kvirt_area_tracked_alloc() {
+fn kvirt_area_tracked_alloc() {
     let size = 2 * PAGE_SIZE;
     let kvirt_area = KVirtArea::<Tracked>::new(size);
 

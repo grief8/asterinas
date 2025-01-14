@@ -1,4 +1,4 @@
-// test.rs
+// SPDX-License-Identifier: MPL-2.0
 
 use core::alloc::Layout;
 
@@ -8,10 +8,8 @@ use crate::{mm::PAGE_SIZE, prelude::*};
 #[ktest]
 fn heap_initialization() {
     unsafe {
-        // Initialize the heap allocator
         init();
 
-        // Verify that the heap allocator is initialized
         assert!(HEAP_ALLOCATOR.heap.get().is_some());
     }
 }
@@ -27,14 +25,10 @@ fn heap_allocator_alloc() {
     unsafe {
         init();
 
-        // Allocate a small chunk of memory
         let layout = Layout::from_size_align(16, 8).unwrap();
         let ptr = HEAP_ALLOCATOR.alloc(layout);
 
-        // Verify that the allocation was successful
         assert!(!ptr.is_null());
-
-        // Deallocate the memory
         HEAP_ALLOCATOR.dealloc(ptr, layout);
     }
 }
@@ -44,18 +38,14 @@ fn heap_allocator_dealloc() {
     unsafe {
         init();
 
-        // Allocate a small chunk of memory
         let layout = Layout::from_size_align(16, 8).unwrap();
         let ptr = HEAP_ALLOCATOR.alloc(layout);
 
-        // Deallocate the memory
         HEAP_ALLOCATOR.dealloc(ptr, layout);
 
-        // Verify that the deallocation was successful by trying to allocate again
         let ptr2 = HEAP_ALLOCATOR.alloc(layout);
         assert!(!ptr2.is_null());
 
-        // Clean up
         HEAP_ALLOCATOR.dealloc(ptr2, layout);
     }
 }
@@ -65,14 +55,11 @@ fn heap_allocator_large_layout() {
     unsafe {
         init();
 
-        // Allocate a large chunk of memory to trigger the rescue mechanism
         let layout = Layout::from_size_align(PAGE_SIZE * 1024, PAGE_SIZE).unwrap();
         let ptr = HEAP_ALLOCATOR.alloc(layout);
 
-        // Verify that the allocation was successful
         assert!(!ptr.is_null());
 
-        // Deallocate the memory
         HEAP_ALLOCATOR.dealloc(ptr, layout);
     }
 }

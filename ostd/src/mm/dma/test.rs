@@ -11,7 +11,7 @@ mod dma_coherent {
     use super::*;
 
     #[ktest]
-    fn dma_coherent_map() {
+    fn map() {
         let segment = FrameAllocOptions::new()
             .alloc_segment_with(1, |_| ())
             .unwrap();
@@ -21,7 +21,7 @@ mod dma_coherent {
     }
 
     #[ktest]
-    fn dma_coherent_map_incoherent() {
+    fn map_incoherent() {
         let segment = FrameAllocOptions::new()
             .alloc_segment_with(1, |_| ())
             .unwrap();
@@ -31,7 +31,7 @@ mod dma_coherent {
     }
 
     #[ktest]
-    fn dma_coherent_duplicate_map() {
+    fn duplicate_map() {
         let segment = FrameAllocOptions::new()
             .alloc_segment_with(2, |_| ())
             .unwrap();
@@ -42,7 +42,7 @@ mod dma_coherent {
     }
 
     #[ktest]
-    fn dma_coherent_read_write() {
+    fn read_write() {
         let segment = FrameAllocOptions::new()
             .alloc_segment_with(2, |_| ())
             .unwrap();
@@ -56,7 +56,7 @@ mod dma_coherent {
     }
 
     #[ktest]
-    fn dma_coherent_reader_writer() {
+    fn reader_writer() {
         let segment = FrameAllocOptions::new()
             .alloc_segment_with(2, |_| ())
             .unwrap();
@@ -79,7 +79,7 @@ mod dma_stream {
     use super::*;
 
     #[ktest]
-    fn dma_stream_map() {
+    fn map() {
         let segment = FrameAllocOptions::new()
             .alloc_segment_with(1, |_| ())
             .unwrap();
@@ -91,7 +91,7 @@ mod dma_stream {
     }
 
     #[ktest]
-    fn dma_stream_duplicate_map() {
+    fn duplicate_map() {
         let segment_parent = FrameAllocOptions::new()
             .alloc_segment_with(2, |_| ())
             .unwrap();
@@ -104,7 +104,7 @@ mod dma_stream {
     }
 
     #[ktest]
-    fn dma_stream_read_write() {
+    fn read_write() {
         let segment = FrameAllocOptions::new()
             .alloc_segment_with(2, |_| ())
             .unwrap();
@@ -120,7 +120,7 @@ mod dma_stream {
     }
 
     #[ktest]
-    fn dma_stream_reader_writer() {
+    fn reader_writer() {
         let segment = FrameAllocOptions::new()
             .alloc_segment_with(2, |_| ())
             .unwrap();
@@ -140,7 +140,7 @@ mod dma_stream {
     }
 
     #[ktest]
-    fn dma_stream_slice() {
+    fn slice() {
         let segment = FrameAllocOptions::new()
             .alloc_segment_with(2, |_| ())
             .unwrap();
@@ -162,7 +162,7 @@ mod dma_stream {
     }
 
     #[ktest]
-    fn dma_stream_slice_reader_writer() {
+    fn slice_reader_writer() {
         let segment = FrameAllocOptions::new()
             .alloc_segment_with(2, |_| ())
             .unwrap();
@@ -182,7 +182,7 @@ mod dma_stream {
 
     #[ktest]
     #[should_panic]
-    fn dma_stream_slice_invalid_offset() {
+    fn slice_invalid_offset() {
         let segment = FrameAllocOptions::new()
             .alloc_segment_with(2, |_| ())
             .unwrap();
@@ -193,7 +193,7 @@ mod dma_stream {
 
     #[ktest]
     #[should_panic]
-    fn dma_stream_slice_invalid_len() {
+    fn slice_invalid_len() {
         let segment = FrameAllocOptions::new()
             .alloc_segment_with(2, |_| ())
             .unwrap();
