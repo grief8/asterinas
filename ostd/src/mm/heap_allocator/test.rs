@@ -3,10 +3,10 @@
 use core::alloc::Layout;
 
 use super::{Heap, *};
-use crate::{mm::page_allocator::PAGE_SIZE, prelude::*};
+use crate::{mm::PAGE_SIZE, prelude::*};
 
 #[ktest]
-fn test_heap_initialization() {
+fn heap_initialization() {
     unsafe {
         // Initialize the heap allocator
         init();
@@ -17,13 +17,13 @@ fn test_heap_initialization() {
 }
 
 #[ktest]
-fn test_locked_heap_with_rescue_new() {
+fn heap_allocator_new() {
     let locked_heap = LockedHeapWithRescue::new();
     assert!(locked_heap.heap.get().is_none());
 }
 
 #[ktest]
-fn test_locked_heap_with_rescue_alloc() {
+fn heap_allocator_alloc() {
     unsafe {
         init();
 
@@ -40,7 +40,7 @@ fn test_locked_heap_with_rescue_alloc() {
 }
 
 #[ktest]
-fn test_locked_heap_with_rescue_dealloc() {
+fn heap_allocator_dealloc() {
     unsafe {
         init();
 
@@ -61,7 +61,7 @@ fn test_locked_heap_with_rescue_dealloc() {
 }
 
 #[ktest]
-fn test_locked_heap_with_rescue_rescue() {
+fn heap_allocator_large_layout() {
     unsafe {
         init();
 
@@ -79,9 +79,12 @@ fn test_locked_heap_with_rescue_rescue() {
 
 #[ktest]
 fn heap_stat() {
+    #[repr(align(4096))]
+    struct MockHeapSpace([u8; PAGE_SIZE * 8]);
+
     unsafe {
-        let mut buffer = InitHeapSpace([0u8; PAGE_SIZE * 8]);
-        let mut heap = Heap::new(buffer.0.as_mut_ptr() as usize, PAGE_SIZE * 8);
+        let mut buffer = MockHeapSpace([0u8; PAGE_SIZE * 8]);
+        let heap = Heap::new(buffer.0.as_mut_ptr() as usize, PAGE_SIZE * 8);
 
         let layout: Layout = Layout::from_size_align(16, 8).unwrap();
         let size = heap.usable_size(layout);
