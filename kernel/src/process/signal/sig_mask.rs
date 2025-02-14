@@ -143,6 +143,11 @@ impl SigSet {
         let set = set.into();
         self.bits & set.bits == set.bits
     }
+
+    pub fn intersects(&self, set: impl Into<Self>) -> bool {
+        let set = set.into();
+        self.bits & set.bits != 0
+    }
 }
 
 // This is to allow hexadecimally formatting a `SigSet` when debug printing it.

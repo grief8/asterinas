@@ -115,6 +115,10 @@ impl PosixThread {
         &self.sig_mask
     }
 
+    pub fn sig_queues(&self) -> &SigQueues {
+        &self.sig_queues
+    }
+
     pub fn sig_pending(&self) -> SigSet {
         self.sig_queues.sig_pending()
     }
@@ -206,6 +210,11 @@ impl PosixThread {
     pub fn enqueue_signal(&self, signal: Box<dyn Signal>) {
         let signal_number = signal.num();
         self.sig_queues.enqueue(signal);
+        debug!(
+            "[fff] Enqueued signal {:?} to thread {}",
+            signal_number,
+            self.tid()
+        );
         if self.process().sig_dispositions().lock().get(signal_number) != SigAction::Ign
             && let Some(waker) = &*self.signalled_waker.lock()
         {
