@@ -16,9 +16,7 @@ use crate::{
     process::{
         posix_thread::{AsPosixThread, PosixThread},
         signal::{
-            sig_mask::{AtomicSigMask, SigSet},
-            signals::Signal,
-            PollHandle, Pollable, Pollee, SigEvents, SigEventsFilter,
+            constants::{SIGKILL, SIGSTOP}, sig_mask::{AtomicSigMask, SigMask, SigSet}, signals::Signal, PollHandle, Pollable, Pollee, SigEvents, SigEventsFilter
         },
         Gid, Uid,
     },
@@ -27,31 +25,34 @@ use crate::{
 
 pub fn sys_signalfd(
     fd: FileDesc,
-    mask: u64,
+    mask_ptr: Vaddr,
     sizemask: usize,
     ctx: &Context,
 ) -> Result<SyscallReturn> {
-    sys_signalfd4(fd, mask, sizemask, 0, ctx)
+    sys_signalfd4(fd, mask_ptr, sizemask, 0, ctx)
 }
 
 pub fn sys_signalfd4(
     fd: FileDesc,
-    mask: u64,
+    mask_ptr: Vaddr,
     sizemask: usize,
     flags: i32,
     ctx: &Context,
 ) -> Result<SyscallReturn> {
     debug!(
         "fd = {}, mask = {:x}, sizemask = {}, flags = {}",
-        fd, mask, sizemask, flags
+        fd, mask_ptr, sizemask, flags
     );
 
     if sizemask != core::mem::size_of::<SigSet>() {
         return Err(Error::with_message(Errno::EINVAL, "invalid mask size"));
     }
 
-    
-    let mask = SigSet::from(mask);
+    let mut read_mask = ctx.user_space().read_val::<SigMask>(mask_ptr)?;
+    read_mask -= SIGKILL;
+    read_mask -= SIGSTOP;
+    let mask = !read_mask;
+
     let flags = SignalFileFlags::from_bits(flags as u32)
         .ok_or_else(|| Error::with_message(Errno::EINVAL, "invalid flags"))?;
 
@@ -64,7 +65,7 @@ pub fn sys_signalfd4(
     let non_blocking = flags.contains(SignalFileFlags::O_NONBLOCK);
 
     let new_fd = if fd == -1 {
-        let sig_mask = AtomicSigMask::new(mask);
+        let sig_mask = AtomicSigMask::from(mask);
         let signal_file = Arc::new(SignalFile::new(
             Arc::downgrade(&ctx.thread.task()),
             sig_mask,
@@ -73,7 +74,7 @@ pub fn sys_signalfd4(
 
         // Register observer to current thread's signal queues
         let observer = Arc::downgrade(&signal_file) as Weak<dyn Observer<SigEvents>>;
-        let filter = SigEventsFilter::new(AtomicSigMask::new(mask).load(Ordering::Relaxed));
+        let filter = SigEventsFilter::new(mask);
         ctx.posix_thread
             .register_sigqueue_observer(observer.clone(), filter);
         *signal_file.observer().lock() = Some(observer);
@@ -88,7 +89,7 @@ pub fn sys_signalfd4(
             .downcast_ref::<SignalFile>()
             .ok_or(Error::with_message(Errno::EINVAL, "not a signalfd"))?;
 
-        let new_mask = AtomicSigMask::new(mask);
+        let new_mask = AtomicSigMask::from(mask);
         if signal_file.mask().load(Ordering::Relaxed) != new_mask.load(Ordering::Relaxed) {
             // Update mask and re-register observer to associated thread
             let old_observer = signal_file.observer().lock().take();

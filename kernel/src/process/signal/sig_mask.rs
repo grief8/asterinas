@@ -118,6 +118,15 @@ impl<T: Into<SigSet>> ops::SubAssign<T> for SigSet {
     }
 }
 
+impl ops::Not for SigSet {
+    type Output = Self;
+
+    fn not(self) -> Self {
+        SigSet { bits: !self.bits }
+    }
+    
+}
+
 impl SigSet {
     pub fn new_empty() -> Self {
         SigSet { bits: 0 }
