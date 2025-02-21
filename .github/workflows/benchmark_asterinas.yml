@@ -189,7 +189,7 @@ jobs:
           BENCH_RESULT="test/benchmark/${BENCHMARK_DIR}/bench_result.yaml"
           [ -f "$BENCH_RESULT" ] || BENCH_RESULT="test/benchmark/${BENCHMARK_DIR}.yaml"
           ALERT_THRESHOLD=$(yq -r '.alert.threshold // "130%"' "$BENCH_RESULT")
-          ALERT_TOOL=$(yq -r 'if .alert.bigger_is_better == true then "customBiggerIsBetter" else "customSmallerIsBetter" end' "$BENCH_RESULT")
+          ALERT_TOOL=$(yq -r 'if (.alert.bigger_is_better == true) then "customBiggerIsBetter" else "customSmallerIsBetter" end' "$BENCH_RESULT")
           TITLE=$(yq -r '.chart.title // "Undefined"' "$BENCH_RESULT")
           DESCRIPTION=$(yq -r '.chart.description // "No description provided"' "$BENCH_RESULT")
           echo "BENCHMARK_SUITE=$BENCHMARK_SUITE" >> $GITHUB_ENV
