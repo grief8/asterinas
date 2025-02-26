@@ -240,16 +240,6 @@ impl KObject {
     }
 }
 
-impl Drop for KObject {
-    fn drop(&mut self) {
-        if let Some(parent) = &self.parent {
-            if let Some(parent) = parent.upgrade() {
-                parent.remove(&self.name());
-            }
-        }
-    }
-}
-
 impl Inode for KObject {
     fn size(&self) -> usize {
         self.node.size()

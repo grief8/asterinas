@@ -25,26 +25,27 @@ pub struct KernfsElemDir {
 
 #[derive(Debug)]
 pub struct KernfsElemSymlink {
-    target_kn: String,
+    target_path: String,
 }
 
 impl KernfsElemSymlink {
     pub fn new(target_kn: String) -> Self {
-        KernfsElemSymlink { target_kn }
+        KernfsElemSymlink { target_path: target_kn }
     }
 
-    pub fn get_target_kn(&self) -> String {
-        self.target_kn.clone()
+    pub fn target_path(&self) -> String {
+        self.target_path.clone()
     }
 
-    pub fn set_target_kn(&mut self, target_kn: String) {
-        self.target_kn = target_kn;
+    pub fn set_target_path(&mut self, target_kn: String) {
+        self.target_path = target_kn;
     }
 }
 
 pub trait DataProvider: Any + Sync + Send {
     fn read_at(&self, writer: &mut VmWriter, offset: usize) -> Result<usize>;
     fn write_at(&mut self, reader: &mut VmReader, offset: usize) -> Result<usize>;
+    fn truncate(&mut self, new_size: usize) -> Result<()>;
 }
 
 pub struct KernfsElemAttr {
@@ -74,6 +75,14 @@ impl KernfsElemAttr {
             Ok(new_size)
         } else {
             Ok(0)
+        }
+    }
+
+    pub fn truncate(&mut self, new_size: usize) -> Result<()> {
+        if let Some(data) = &mut self.data {
+            data.truncate(new_size)
+        } else {
+            Ok(())
         }
     }
 }
@@ -195,7 +204,7 @@ impl KernfsElem {
 
     pub fn read_link(&self) -> Result<String> {
         match self {
-            KernfsElem::Symlink(link) => Ok(link.get_target_kn()),
+            KernfsElem::Symlink(link) => Ok(link.target_path()),
             _ => return_errno!(Errno::EINVAL),
         }
     }
@@ -203,7 +212,7 @@ impl KernfsElem {
     pub fn write_link(&mut self, target_kn: &str) -> Result<()> {
         match self {
             KernfsElem::Symlink(link) => {
-                link.set_target_kn(target_kn.to_string());
+                link.set_target_path(target_kn.to_string());
                 Ok(())
             }
             _ => return_errno!(Errno::EINVAL),

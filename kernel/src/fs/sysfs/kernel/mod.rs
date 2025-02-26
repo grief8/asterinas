@@ -35,4 +35,8 @@ impl DataProvider for HugepagePmdSize {
     fn write_at(&mut self, _reader: &mut VmReader, _offset: usize) -> Result<usize> {
         return_errno_with_message!(Errno::EINVAL, "HugepagePmdSize is read-only");
     }
+
+    fn truncate(&mut self, _new_size: usize) -> Result<()> {
+        return_errno!(Errno::EINVAL);
+    }
 }

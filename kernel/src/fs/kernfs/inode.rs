@@ -25,7 +25,7 @@ use crate::{
         Errno,
     },
     prelude::*,
-    process::{signal::PollHandle, Gid, Uid},
+    process::{signal::PollHandle, Gid, Uid}, time::clocks::RealTimeCoarseClock,
 };
 
 #[derive(Debug)]
@@ -196,29 +196,17 @@ impl PseudoNode for KernfsNode {
     }
 }
 
-impl Drop for KernfsNode {
-    /// Drop the current node.
-    /// Remove the current node from the parent node.
-    fn drop(&mut self) {
-        let parent = if let Some(parent) = self.parent() {
-            parent
-        } else {
-            return;
-        };
-
-        let _ = parent.remove(&self.inner.read().name);
-    }
-}
-
 impl Inode for KernfsNode {
     fn type_(&self) -> InodeType {
         self.metadata().type_
     }
 
     fn resize(&self, new_size: usize) -> Result<()> {
-        self.inner.write().metadata.size = new_size;
-        // FIXME: The resize operation should be supported for regular files.
-        // A possible implementation is adding a size() for DataProvider.
+        let mut inner = self.inner.write();
+        if let KernfsElem::Attr(attr) = &mut inner.elem {
+            attr.truncate(new_size)?;
+        }
+        inner.metadata.size = new_size;
         Ok(())
     }
 
@@ -294,7 +282,9 @@ impl Inode for KernfsNode {
     }
 
     fn read_at(&self, offset: usize, buf: &mut VmWriter) -> Result<usize> {
-        self.inner.read().elem.read_at(offset, buf)
+        let size = self.inner.read().elem.read_at(offset, buf)?;
+        self.set_atime(RealTimeCoarseClock::get().read_time()); 
+        Ok(size)
     }
 
     fn read_direct_at(&self, offset: usize, buf: &mut VmWriter) -> Result<usize> {
@@ -302,7 +292,10 @@ impl Inode for KernfsNode {
     }
 
     fn write_at(&self, offset: usize, buf: &mut VmReader) -> Result<usize> {
-        self.inner.write().elem.write_at(offset, buf)
+        let size = self.inner.write().elem.write_at(offset, buf)?;
+        self.set_mtime(RealTimeCoarseClock::get().read_time()); 
+        self.set_ctime(RealTimeCoarseClock::get().read_time());
+        Ok(size)
     }
 
     fn write_direct_at(&self, offset: usize, buf: &mut VmReader) -> Result<usize> {
@@ -330,6 +323,7 @@ impl Inode for KernfsNode {
             ),
             _ => return_errno!(Errno::EINVAL),
         }?;
+        self.insert(name.to_string(), new_node.clone())?;
         Ok(new_node)
     }
 
@@ -371,26 +365,7 @@ impl Inode for KernfsNode {
     }
 
     fn link(&self, old: &Arc<dyn Inode>, name: &str) -> Result<()> {
-        // Create a hard link to the old inode.
-        // The old inode should be a regular file or a directory.
-        // The name should not be "." or "..".
-        // The name should not exist in the current directory.
-        if old.type_() != InodeType::File && old.type_() != InodeType::Dir {
-            return_errno!(Errno::EPERM);
-        }
-        if name == "." || name == ".." {
-            return_errno!(Errno::EPERM);
-        }
-        if self.lookup(name).is_ok() {
-            return_errno!(Errno::EEXIST);
-        }
-        let target: Arc<dyn PseudoNode> = old
-            .downcast_ref::<KernfsNode>()
-            .ok_or(Error::new(Errno::EXDEV))?
-            .this();
-        let new_node =
-            KernfsNode::new_symlink(name, target, self.this_weak())?;
-        Ok(())
+        return_errno_with_message!(Errno::EOPNOTSUPP, "hard links not supported in kernfs");
     }
 
     fn unlink(&self, name: &str) -> Result<()> {

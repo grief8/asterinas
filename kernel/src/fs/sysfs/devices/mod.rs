@@ -33,4 +33,8 @@ impl DataProvider for CpuOnline {
     fn write_at(&mut self, reader: &mut ostd::mm::VmReader, offset: usize) -> Result<usize> {
         return_errno_with_message!(Errno::EINVAL, "This file is read-only");
     }
+
+    fn truncate(&mut self, _new_size: usize) -> Result<()> {
+        return_errno!(Errno::EINVAL);
+    }
 }
