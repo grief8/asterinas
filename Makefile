@@ -84,7 +84,7 @@ BOOT_PROTOCOL = linux-efi-handover64
 CARGO_OSDK_ARGS += --scheme tdx
 endif
 
-ifneq ($(SCHEME), "")
+ifneq ($(SCHEME), none)
 CARGO_OSDK_ARGS += --scheme $(SCHEME)
 else
 CARGO_OSDK_ARGS += --boot-method="$(BOOT_METHOD)"

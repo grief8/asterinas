@@ -13,19 +13,19 @@ jobs:
     strategy:
       matrix:
         test_id:
-          # Boot 测试
+          # Boot 
           - 'boot_mb'
           - 'boot_legacy32'
           - 'boot_mb2_smp4'
 
-          # Syscall 测试
+          # Syscall 
           - 'syscall_debug'
           - 'syscall_at_ext2_microvm'
           - 'syscall_at_ext2_iommu_debug'
           - 'syscall_at_exfat_mb2_nokvm'
           - 'syscall_mb2_smp4'
 
-          # General 测试
+          # General 
           - 'test_efi'
           - 'test_mb2_smp4'
       fail-fast: false
@@ -46,5 +46,5 @@ jobs:
       boot_protocol: ${{ contains(matrix.test_id, 'mb2') && 'multiboot2' || 
         contains(matrix.test_id, 'mb') && 'multiboot' || 
         contains(matrix.test_id, 'legacy32') && 'linux-legacy32' || 'linux-efi-handover64' }}
-      container_image: ${{ contains(matrix.test_id, 'tdx') && 'asterinas/asterinas:0.13.0-tdx' || 'asterinas/asterinas:0.13.0' }}
-      runs_on: ${{ contains(matrix.test_id, 'tdx') && 'self-hosted' || 'ubuntu-latest' }}
+      container_image: 'asterinas/asterinas:0.13.0'
+      runs_on: 'ubuntu-latest'

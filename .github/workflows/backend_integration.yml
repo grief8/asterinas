@@ -1,4 +1,4 @@
-name: Integration Test Template
+name: Integration Test Backend
 
 on:
   workflow_call:
@@ -29,7 +29,7 @@ on:
       scheme:  
         required: false
         type: string
-        default: ''
+        default: 'none'
       extra_blocklists:
         required: false
         type: string
