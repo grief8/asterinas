@@ -22,7 +22,7 @@ on:
       netdev:
         required: false
         type: string
-        default: ''
+        default: 'user'
       extra_blocklists:
         required: false
         type: string
@@ -30,11 +30,11 @@ on:
       syscall_test_dir:
         required: false
         type: string
-        default: ''
+        default: '/tmp'
       boot_protocol:
         required: false
         type: string
-        default: ''
+        default: 'linux-efi-handover64'
       runs_on:
         required: false
         type: string
@@ -73,8 +73,8 @@ jobs:
               AUTO_TEST=${{ inputs.auto_test }} \
               RELEASE=${{ inputs.release && 1 || 0 }} \
               INTEL_TDX=${{ inputs.intel_tdx && 1 || 0 }} \
-              $( [ -n "${{ inputs.smp }}" ] && echo "SMP=${{ inputs.smp }}" ) \
-              $( [ -n "${{ inputs.netdev }}" ] && echo "NETDEV=${{ inputs.netdev }}" ) \
-              $( [ -n "${{ inputs.extra_blocklists }}" ] && echo "EXTRA_BLOCKLISTS_DIRS=${{ inputs.extra_blocklists }}" ) \
-              $( [ -n "${{ inputs.syscall_test_dir }}" ] && echo "SYSCALL_TEST_DIR=${{ inputs.syscall_test_dir }}" ) \
-              $( [ -n "${{ inputs.boot_protocol }}" ] && echo "BOOT_PROTOCOL=${{ inputs.boot_protocol }}" )
+              SMP=${{ inputs.smp }} \
+              NETDEV=${{ inputs.netdev }} \
+              EXTRA_BLOCKLISTS_DIRS=${{ inputs.extra_blocklists }} \
+              SYSCALL_TEST_DIR=${{ inputs.syscall_test_dir }} \
+              BOOT_PROTOCOL=${{ inputs.boot_protocol }}
