@@ -8,7 +8,7 @@ on:
       - main
 
 jobs:
-  integration-test:
+  x86-test:
     uses: ./.github/workflows/backend_integration.yml
     strategy:
       matrix:
