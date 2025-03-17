@@ -9,30 +9,41 @@ on:
 
 jobs:
   integration-test:
-    uses: ./.github/workflows/integration-test.yml
+    uses: ./.github/workflows/backend_integration.yml
     strategy:
       matrix:
         test_id:
-          - 'boot_test_mb'
-          - 'boot_test_linux_legacy32'
-          - 'syscall_test'
-          - 'syscall_test_at_ext2_microvm'
-          - 'syscall_test_at_ext2_iommu'
-          - 'syscall_test_at_exfat_linux'
-          - 'smp_syscall_test_mb2'
-          - 'test_linux'
-          - 'smp_test_mb2'
+          # Boot 测试
+          - 'boot_mb'
+          - 'boot_legacy32'
+          - 'boot_mb2_smp4'
+
+          # Syscall 测试
+          - 'syscall'
+          - 'syscall_at_ext2_microvm'
+          - 'syscall_at_ext2_iommu'
+          - 'syscall_at_exfat_efi_mb2'
+          - 'syscall_mb2_smp4'
+
+          # General 测试
+          - 'test_efi'
+          - 'test_mb2_smp4'
       fail-fast: false
     with:
       test_id: ${{ matrix.test_id }}
-      auto_test: ${{ contains(matrix.test_id, 'boot_test') && 'boot' ||
-        contains(matrix.test_id, 'syscall_test') && 'syscall' || 'test' }}
-      release: ${{ !contains(matrix.test_id, 'Debug') }}
-      intel_tdx: false
-      smp: ${{ contains(matrix.test_id, 'smp') && 4 || 1 }}
+      auto_test: ${{ startsWith(matrix.test_id, 'boot') && 'boot' ||
+        startsWith(matrix.test_id, 'syscall') && 'syscall' ||
+        startsWith(matrix.test_id, 'test') && 'test' }}
+      release: ${{ !contains(matrix.test_id, '_debug') && !contains(matrix.test_id, 'iommu')}}
+      intel_tdx: ${{ contains(matrix.test_id, 'tdx') }}
+      smp: ${{ contains(matrix.test_id, 'smp4') && 4 || contains(matrix.test_id, 'smp') && 2 || 1 }}
       netdev: 'tap'
+      scheme: ${{ contains(matrix.test_id, 'microvm') && 'microvm' || contains(matrix.test_id, 'iommu') && 'iommu' }}
       extra_blocklists: ${{ contains(matrix.test_id, 'exfat') && 'blocklists.exfat' || '' }}
-      syscall_test_dir: ${{ contains(matrix.test_id, 'ext2') && 'ext2' || '' }}
-      boot_protocol: ${{ contains(matrix.test_id, 'linux_legacy32') && 'linux-legacy32' ||
-        contains(matrix.test_id, 'mb') && 'multiboot' ||
-        contains(matrix.test_id, 'linux') && 'linux-efi-handover64' || '' }}
+      syscall_test_dir: ${{ contains(matrix.test_id, 'at_ext2') && '/ext2' ||
+        contains(matrix.test_id, 'at_exfat') && '/exfat' || '/tmp' }}
+      boot_protocol: ${{ contains(matrix.test_id, 'mb2') && 'multiboot2' || 
+        contains(matrix.test_id, 'mb') && 'multiboot' || 
+        contains(matrix.test_id, 'legacy32') && 'linux-legacy32' || 'linux-efi-handover64' }}
+      container_image: ${{ contains(matrix.test_id, 'tdx') && 'asterinas/asterinas:0.13.0-tdx' || 'asterinas/asterinas:0.13.0' }}
+      runs_on: ${{ contains(matrix.test_id, 'tdx') && 'self-hosted' || 'ubuntu-latest' }}

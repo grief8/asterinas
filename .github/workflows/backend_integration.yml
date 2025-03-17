@@ -23,6 +23,10 @@ on:
         required: false
         type: string
         default: 'user'
+      scheme:  
+        required: false
+        type: string
+        default: ''
       extra_blocklists:
         required: false
         type: string
@@ -52,12 +56,23 @@ jobs:
   integration-test:
     runs-on: ${{ inputs.runs_on }}
     timeout-minutes: ${{ inputs.timeout_minutes }}
+    env:
+      RUSTUP_DIST_SERVER: ${{ inputs.intel_tdx && 'https://mirrors.ustc.edu.cn/rust-static' || '' }}
+      RUSTUP_UPDATE_ROOT: ${{ inputs.intel_tdx && 'https://mirrors.ustc.edu.cn/rust-static/rustup' || '' }}
     container:
       image: ${{ inputs.container_image }}
       options: --device=/dev/kvm --privileged
     steps:
       - uses: actions/checkout@v4
       
+      - name: Initialize environment  
+        if: inputs.intel_tdx
+        run: |
+          chmod +x test/benchmark/bench_linux_and_aster.sh
+          git config --global --add safe.directory /__w/asterinas/asterinas
+          git config --global http.sslVerify false
+          git config --global http.version HTTP/1.1
+
       - name: Setup environment
         run: |
           echo "Running test ${{ inputs.test_id }}"
@@ -75,6 +90,7 @@ jobs:
               INTEL_TDX=${{ inputs.intel_tdx && 1 || 0 }} \
               SMP=${{ inputs.smp }} \
               NETDEV=${{ inputs.netdev }} \
+              SCHEME=${{ inputs.scheme }} \  
               EXTRA_BLOCKLISTS_DIRS=${{ inputs.extra_blocklists }} \
               SYSCALL_TEST_DIR=${{ inputs.syscall_test_dir }} \
               BOOT_PROTOCOL=${{ inputs.boot_protocol }}
