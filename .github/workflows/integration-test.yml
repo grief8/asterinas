@@ -73,9 +73,8 @@ jobs:
               AUTO_TEST=${{ inputs.auto_test }} \
               RELEASE=${{ inputs.release && 1 || 0 }} \
               INTEL_TDX=${{ inputs.intel_tdx && 1 || 0 }} \
-              ${{ inputs.smp > 1 && format('SMP={0}', inputs.smp) || '' }} \
-              ${{ inputs.netdev && format('NETDEV={0}', inputs.netdev) || '' }} \
-              ${{ inputs.extra_blocklists && format('EXTRA_BLOCKLISTS_DIRS={0}', inputs.extra_blocklists) || '' }} \
-              ${{ inputs.syscall_test_dir && format('SYSCALL_TEST_DIR={0}', inputs.syscall_test_dir) || '' }} \
-              ${{ inputs.boot_protocol && format('BOOT_PROTOCOL={0}', inputs.boot_protocol) || '' }}
-              
+              $( [ -n "${{ inputs.smp }}" ] && echo "SMP=${{ inputs.smp }}" ) \
+              $( [ -n "${{ inputs.netdev }}" ] && echo "NETDEV=${{ inputs.netdev }}" ) \
+              $( [ -n "${{ inputs.extra_blocklists }}" ] && echo "EXTRA_BLOCKLISTS_DIRS=${{ inputs.extra_blocklists }}" ) \
+              $( [ -n "${{ inputs.syscall_test_dir }}" ] && echo "SYSCALL_TEST_DIR=${{ inputs.syscall_test_dir }}" ) \
+              $( [ -n "${{ inputs.boot_protocol }}" ] && echo "BOOT_PROTOCOL=${{ inputs.boot_protocol }}" )
