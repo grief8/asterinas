@@ -1,0 +1,38 @@
+name: Test Asterinas on x86
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  integration-test:
+    uses: ./.github/workflows/integration-test.yml
+    strategy:
+      matrix:
+        test_id:
+          - 'boot_test_mb'
+          - 'boot_test_linux_legacy32'
+          - 'syscall_test'
+          - 'syscall_test_at_ext2_microvm'
+          - 'syscall_test_at_ext2_iommu'
+          - 'syscall_test_at_exfat_linux'
+          - 'smp_syscall_test_mb2'
+          - 'test_linux'
+          - 'smp_test_mb2'
+      fail-fast: false
+    with:
+      test_id: ${{ matrix.test_id }}
+      auto_test: ${{ contains(matrix.test_id, 'boot_test') && 'boot' ||
+        contains(matrix.test_id, 'syscall_test') && 'syscall' || 'test' }}
+      release: ${{ !contains(matrix.test_id, 'Debug') }}
+      intel_tdx: false
+      smp: ${{ contains(matrix.test_id, 'smp') && 4 || 1 }}
+      netdev: 'tap'
+      extra_blocklists: ${{ contains(matrix.test_id, 'exfat') && 'blocklists.exfat' || '' }}
+      syscall_test_dir: ${{ contains(matrix.test_id, 'ext2') && 'ext2' || '' }}
+      boot_protocol: ${{ contains(matrix.test_id, 'linux_legacy32') && 'linux-legacy32' ||
+        contains(matrix.test_id, 'mb') && 'multiboot' ||
+        contains(matrix.test_id, 'linux') && 'linux-efi-handover64' || '' }}

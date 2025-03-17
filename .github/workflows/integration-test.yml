@@ -1,0 +1,81 @@
+name: Integration Test Template
+
+on:
+  workflow_call:
+    inputs:
+      test_id:
+        required: true
+        type: string
+      auto_test:
+        required: true
+        type: string
+      release:
+        required: true
+        type: boolean
+      intel_tdx:
+        required: true
+        type: boolean
+      smp:
+        required: false
+        type: number
+        default: 1
+      netdev:
+        required: false
+        type: string
+        default: ''
+      extra_blocklists:
+        required: false
+        type: string
+        default: ''
+      syscall_test_dir:
+        required: false
+        type: string
+        default: ''
+      boot_protocol:
+        required: false
+        type: string
+        default: ''
+      runs_on:
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+      timeout_minutes:
+        required: false
+        type: number
+        default: 15
+      container_image:
+        required: false
+        type: string
+        default: 'asterinas/asterinas:0.13.0'
+
+jobs:
+  integration-test:
+    runs-on: ${{ inputs.runs_on }}
+    timeout-minutes: ${{ inputs.timeout_minutes }}
+    container:
+      image: ${{ inputs.container_image }}
+      options: --device=/dev/kvm --privileged
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup environment
+        run: |
+          echo "Running test ${{ inputs.test_id }}"
+          echo "Container image: ${{ inputs.container_image }}"
+          
+      - name: Run Test
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 20
+          max_attempts: 3
+          command: |
+            make run \
+              AUTO_TEST=${{ inputs.auto_test }} \
+              RELEASE=${{ inputs.release && 1 || 0 }} \
+              INTEL_TDX=${{ inputs.intel_tdx && 1 || 0 }} \
+              ${{ inputs.smp > 1 && format('SMP={0}', inputs.smp) || '' }} \
+              ${{ inputs.netdev && format('NETDEV={0}', inputs.netdev) || '' }} \
+              ${{ inputs.extra_blocklists && format('EXTRA_BLOCKLISTS_DIRS={0}', inputs.extra_blocklists) || '' }} \
+              ${{ inputs.syscall_test_dir && format('SYSCALL_TEST_DIR={0}', inputs.syscall_test_dir) || '' }} \
+              ${{ inputs.boot_protocol && format('BOOT_PROTOCOL={0}', inputs.boot_protocol) || '' }}
+              

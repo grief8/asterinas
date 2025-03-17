@@ -1,0 +1,35 @@
+name: Test Asterinas TDX
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 22 * * *'
+
+jobs:
+  integration-test-tdx:
+    uses: ./.github/workflows/integration-test.yml
+    if: github.event_name == 'schedule'  
+    strategy:
+      matrix:
+        test_id:
+          - 'tdx_boot_test'
+          - 'tdx_syscall_test'
+          - 'tdx_syscall_test_at_exfat'
+          - 'tdx_general_test'
+          - 'tdx_smp_boot_test'
+          - 'tdx_smp_general_test'
+          - 'tdx_smp_syscall_test'
+      fail-fast: false
+    with:
+      test_id: ${{ matrix.test_id }}
+      auto_test: ${{ contains(matrix.test_id, 'tdx_boot') && 'boot' ||
+        contains(matrix.test_id, 'tdx_syscall') && 'syscall' || 'test' }}
+      release: true
+      smp: ${{ contains(matrix.test_id, 'smp') && 4 || 1 }}
+      netdev: ${{ contains(matrix.test_id, 'smp') && 'tap' || '' }}
+      extra_blocklists: ${{ contains(matrix.test_id, 'exfat') && 'blocklists.exfat' || '' }}
+      syscall_test_dir: ${{ contains(matrix.test_id, 'exfat') && 'exfat' || '' }}
+      runs_on: self-hosted
+      timeout_minutes: 30
+      container_image: asterinas/asterinas:0.12.0-tdx
+      intel_tdx: true
