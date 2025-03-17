@@ -12,6 +12,9 @@ on:
       release:
         required: true
         type: boolean
+      enable_kvm:
+        required: true
+        type: boolean
       intel_tdx:
         required: true
         type: boolean
@@ -87,6 +90,7 @@ jobs:
             make run \
               AUTO_TEST=${{ inputs.auto_test }} \
               RELEASE=${{ inputs.release && 1 || 0 }} \
+              ENABLE_KVM=${{ inputs.enable_kvm && 1 || 0 }} \
               INTEL_TDX=${{ inputs.intel_tdx && 1 || 0 }} \
               SMP=${{ inputs.smp }} \
               NETDEV=${{ inputs.netdev }} \

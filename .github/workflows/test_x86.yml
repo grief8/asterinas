@@ -19,10 +19,10 @@ jobs:
           - 'boot_mb2_smp4'
 
           # Syscall 测试
-          - 'syscall'
+          - 'syscall_debug'
           - 'syscall_at_ext2_microvm'
-          - 'syscall_at_ext2_iommu'
-          - 'syscall_at_exfat_efi_mb2'
+          - 'syscall_at_ext2_iommu_debug'
+          - 'syscall_at_exfat_mb2_nokvm'
           - 'syscall_mb2_smp4'
 
           # General 测试
@@ -34,11 +34,12 @@ jobs:
       auto_test: ${{ startsWith(matrix.test_id, 'boot') && 'boot' ||
         startsWith(matrix.test_id, 'syscall') && 'syscall' ||
         startsWith(matrix.test_id, 'test') && 'test' }}
-      release: ${{ !contains(matrix.test_id, '_debug') && !contains(matrix.test_id, 'iommu')}}
+      release: ${{ !contains(matrix.test_id, '_debug') }}
+      enable_kvm: ${{ !contains(matrix.test_id, 'nokvm') }}
       intel_tdx: ${{ contains(matrix.test_id, 'tdx') }}
       smp: ${{ contains(matrix.test_id, 'smp4') && 4 || contains(matrix.test_id, 'smp') && 2 || 1 }}
       netdev: 'tap'
-      scheme: ${{ contains(matrix.test_id, 'microvm') && 'microvm' || contains(matrix.test_id, 'iommu') && 'iommu' }}
+      scheme: ${{ contains(matrix.test_id, 'microvm') && 'microvm' || contains(matrix.test_id, 'iommu') && 'iommu' || '' }}
       extra_blocklists: ${{ contains(matrix.test_id, 'exfat') && 'blocklists.exfat' || '' }}
       syscall_test_dir: ${{ contains(matrix.test_id, 'at_ext2') && '/ext2' ||
         contains(matrix.test_id, 'at_exfat') && '/exfat' || '/tmp' }}
