@@ -39,7 +39,7 @@ jobs:
       intel_tdx: ${{ contains(matrix.test_id, 'tdx') }}
       smp: ${{ contains(matrix.test_id, 'smp4') && 4 || contains(matrix.test_id, 'smp') && 2 || 1 }}
       netdev: 'tap'
-      scheme: ${{ contains(matrix.test_id, 'microvm') && 'microvm' || contains(matrix.test_id, 'iommu') && 'iommu' || '' }}
+      scheme: ${{ contains(matrix.test_id, 'microvm') && 'microvm' || contains(matrix.test_id, 'iommu') && 'iommu' || 'none' }}
       extra_blocklists: ${{ contains(matrix.test_id, 'exfat') && 'blocklists.exfat' || '' }}
       syscall_test_dir: ${{ contains(matrix.test_id, 'at_ext2') && '/ext2' ||
         contains(matrix.test_id, 'at_exfat') && '/exfat' || '/tmp' }}
