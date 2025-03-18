@@ -83,7 +83,6 @@ jobs:
         run: make ktest NETDEV=tap
 
   integration-test:
-    needs: general-tests
     runs-on: ${{ inputs.runs_on }}
     timeout-minutes: ${{ inputs.timeout_minutes }}
     env:
@@ -109,7 +108,6 @@ jobs:
             BOOT_PROTOCOL=${{ inputs.boot_protocol }}
 
   osdk-test:
-    needs: general-tests
     runs-on: ${{ inputs.runs_on }}
     env:
       RUSTUP_DIST_SERVER: ${{ inputs.intel_tdx && 'https://mirrors.ustc.edu.cn/rust-static' || '' }}

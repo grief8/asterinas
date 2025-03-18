@@ -55,3 +55,4 @@ jobs:
       integration_image: 'asterinas/asterinas:0.14.0'
       osdk_images: '["asterinas/asterinas:0.14.0", "asterinas/osdk:0.14.0"]'
       runs_on: 'ubuntu-latest'
+      run_general_tests: true
