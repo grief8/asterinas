@@ -67,34 +67,16 @@ jobs:
       options: --device=/dev/kvm --privileged
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Initialize environment  
-        if: inputs.intel_tdx
-        run: |
-          chmod +x test/benchmark/bench_linux_and_aster.sh
-          git config --global --add safe.directory /__w/asterinas/asterinas
-          git config --global http.sslVerify false
-          git config --global http.version HTTP/1.1
-
-      - name: Setup environment
-        run: |
-          echo "Running test ${{ inputs.test_id }}"
-          echo "Container image: ${{ inputs.container_image }}"
-          
       - name: Run Test
-        uses: nick-invision/retry@v2
-        with:
-          timeout_minutes: 20
-          max_attempts: 3
-          command: |
-            make run \
-              AUTO_TEST=${{ inputs.auto_test }} \
-              RELEASE=${{ inputs.release && 1 || 0 }} \
-              ENABLE_KVM=${{ inputs.enable_kvm && 1 || 0 }} \
-              INTEL_TDX=${{ inputs.intel_tdx && 1 || 0 }} \
-              SMP=${{ inputs.smp }} \
-              NETDEV=${{ inputs.netdev }} \
-              SCHEME=${{ inputs.scheme }} \  
-              EXTRA_BLOCKLISTS_DIRS=${{ inputs.extra_blocklists }} \
-              SYSCALL_TEST_DIR=${{ inputs.syscall_test_dir }} \
-              BOOT_PROTOCOL=${{ inputs.boot_protocol }}
+        run: |
+          make run \
+            AUTO_TEST=${{ inputs.auto_test }} \
+            RELEASE=${{ inputs.release && 1 || 0 }} \
+            ENABLE_KVM=${{ inputs.enable_kvm && 1 || 0 }} \
+            INTEL_TDX=${{ inputs.intel_tdx && 1 || 0 }} \
+            SMP=${{ inputs.smp }} \
+            NETDEV=${{ inputs.netdev }} \
+            SCHEME=${{ inputs.scheme }} \  
+            EXTRA_BLOCKLISTS_DIRS=${{ inputs.extra_blocklists }} \
+            SYSCALL_TEST_DIR=${{ inputs.syscall_test_dir }} \
+            BOOT_PROTOCOL=${{ inputs.boot_protocol }}
