@@ -71,7 +71,9 @@ jobs:
     if: ${{ inputs.run_general_tests }}
     runs-on: ${{ inputs.runs_on }}
     timeout-minutes: 15
-    container: ${{ inputs.integration_image }}
+    container: 
+      image: ${{ inputs.integration_image }}
+      options: --device=/dev/kvm --privileged
     strategy:
       fail-fast: false  # Important: Allow other steps to continue even if one fails.
       matrix:
