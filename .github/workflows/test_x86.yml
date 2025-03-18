@@ -46,5 +46,5 @@ jobs:
       boot_protocol: ${{ contains(matrix.test_id, 'mb2') && 'multiboot2' || 
         contains(matrix.test_id, 'mb') && 'multiboot' || 
         contains(matrix.test_id, 'legacy32') && 'linux-legacy32' || 'linux-efi-handover64' }}
-      container_image: 'asterinas/asterinas:0.13.0'
+      container_image: 'asterinas/asterinas:0.14.0'
       runs_on: 'ubuntu-latest'

@@ -53,7 +53,7 @@ on:
       container_image:
         required: false
         type: string
-        default: 'asterinas/asterinas:0.13.0'
+        default: 'asterinas/asterinas:0.14.0'
 
 jobs:
   integration-test:
