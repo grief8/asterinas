@@ -1,4 +1,4 @@
-name: Integration Test Backend
+name: Job Execution Backend
 
 on:
   workflow_call:
@@ -72,15 +72,26 @@ jobs:
     runs-on: ${{ inputs.runs_on }}
     timeout-minutes: 15
     container: ${{ inputs.integration_image }}
+    strategy:
+      fail-fast: false  # Important: Allow other steps to continue even if one fails.
+      matrix:
+        step: [lint, compile, usermode_test, ktest] # Define the steps we want to run
     steps:
       - uses: actions/checkout@v4
       - name: Lint
+        if: matrix.step == 'lint'
         run: make check
+
       - name: Compilation
+        if: matrix.step == 'compile'
         run: make build FEATURES=all
+
       - name: Usermode Unit test
+        if: matrix.step == 'usermode_test'
         run: make test
+
       - name: Ktest Unit Test
+        if: matrix.step == 'ktest'
         run: make ktest NETDEV=tap
 
   integration-tests:
@@ -95,7 +106,7 @@ jobs:
       options: --device=/dev/kvm --privileged
     steps:
       - uses: actions/checkout@v4
-      - name: Run Test
+      - name: Run Integration Test
         run: |
           make run \
             AUTO_TEST=${{ inputs.auto_test }} \

@@ -6,21 +6,8 @@ on:
     - cron: '0 22 * * *'  # Daily at 22:00 UTC
 
 jobs:
-  general-checks:
-    uses: ./.github/workflows/backend_integration.yml
-    with:
-      test_id: general_checks
-      run_general_tests: true
-      integration_image: 'asterinas/asterinas:0.14.0-tdx'
-      runs_on: self-hosted
-      auto_test: 'general'  # Provide a default value
-      release: true        # Provide a default value
-      enable_kvm: true     # Provide a default value
-      intel_tdx: true     # Provide a default value
-
   tdx-integration-test:
-    needs: general-checks
-    uses: ./.github/workflows/backend_integration.yml
+    uses: ./.github/workflows/test_backend.yml
     strategy:
       matrix:
         test_id:

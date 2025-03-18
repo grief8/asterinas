@@ -9,7 +9,7 @@ on:
 
 jobs:
   general-checks:
-    uses: ./.github/workflows/backend_integration.yml
+    uses: ./.github/workflows/test_backend.yml
     with:
       run_general_tests: true
       integration_image: 'asterinas/asterinas:0.14.0'
@@ -17,7 +17,7 @@ jobs:
 
   x86-test:
     needs: general-checks
-    uses: ./.github/workflows/backend_integration.yml
+    uses: ./.github/workflows/test_backend.yml
     strategy:
       matrix:
         test_id:
