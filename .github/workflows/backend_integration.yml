@@ -26,7 +26,7 @@ on:
         required: false
         type: string
         default: 'user'
-      scheme:  
+      scheme:
         required: false
         type: string
         default: 'none'
@@ -43,27 +43,54 @@ on:
         type: string
         default: 'linux-efi-handover64'
       runs_on:
-        required: false
+        required: true
         type: string
-        default: 'ubuntu-latest'
       timeout_minutes:
         required: false
         type: number
         default: 15
-      container_image:
+      integration_image:
         required: false
         type: string
         default: 'asterinas/asterinas:0.14.0'
+      osdk_images:
+        required: false
+        type: string
+        default: '["asterinas/asterinas:0.14.0", "asterinas/osdk:0.14.0"]'
+        description: |
+          JSON array of container images for OSDK testing
+          Example: '["asterinas/asterinas:0.14.0", "asterinas/osdk:0.14.0"]'
+      run_general_tests:
+        required: false
+        type: boolean
+        default: false
 
 jobs:
+  general-tests:
+    if: ${{ inputs.run_general_tests }}
+    runs-on: ${{ inputs.runs_on }}
+    timeout-minutes: 15
+    container: ${{ inputs.integration_image }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint
+        run: make check
+      - name: Compilation
+        run: make build FEATURES=all
+      - name: Usermode Unit test
+        run: make test
+      - name: Ktest Unit Test
+        run: make ktest NETDEV=tap
+
   integration-test:
+    needs: general-tests
     runs-on: ${{ inputs.runs_on }}
     timeout-minutes: ${{ inputs.timeout_minutes }}
     env:
       RUSTUP_DIST_SERVER: ${{ inputs.intel_tdx && 'https://mirrors.ustc.edu.cn/rust-static' || '' }}
       RUSTUP_UPDATE_ROOT: ${{ inputs.intel_tdx && 'https://mirrors.ustc.edu.cn/rust-static/rustup' || '' }}
     container:
-      image: ${{ inputs.container_image }}
+      image: ${{ inputs.integration_image }}
       options: --device=/dev/kvm --privileged
     steps:
       - uses: actions/checkout@v4
@@ -76,7 +103,28 @@ jobs:
             INTEL_TDX=${{ inputs.intel_tdx && 1 || 0 }} \
             SMP=${{ inputs.smp }} \
             NETDEV=${{ inputs.netdev }} \
-            SCHEME=${{ inputs.scheme }} \  
+            SCHEME=${{ inputs.scheme }} \
             EXTRA_BLOCKLISTS_DIRS=${{ inputs.extra_blocklists }} \
             SYSCALL_TEST_DIR=${{ inputs.syscall_test_dir }} \
             BOOT_PROTOCOL=${{ inputs.boot_protocol }}
+
+  osdk-test:
+    needs: general-tests
+    runs-on: ${{ inputs.runs_on }}
+    env:
+      RUSTUP_DIST_SERVER: ${{ inputs.intel_tdx && 'https://mirrors.ustc.edu.cn/rust-static' || '' }}
+      RUSTUP_UPDATE_ROOT: ${{ inputs.intel_tdx && 'https://mirrors.ustc.edu.cn/rust-static/rustup' || '' }}
+    strategy:
+      matrix:
+        container: ${{ inputs.osdk_images }}
+      fail-fast: false
+    container:
+      image: ${{ matrix.container }}
+      options: --device=/dev/kvm --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: OSDK Lint
+        if: ${{ !contains(matrix.container, 'osdk') }}
+        run: make check_osdk
+      - name: OSDK Unit test
+        run: RUSTUP_HOME=/root/.rustup make test_osdk
