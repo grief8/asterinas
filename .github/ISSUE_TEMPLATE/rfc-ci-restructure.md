@@ -32,21 +32,53 @@ The CI workflow has been restructured into the following components:
     *   `osdk_images`: A JSON array of container images for OSDK testing.
     *   `run_general_tests`: A boolean flag to indicate whether to run general tests (lint, compilation, unit tests).
 
-    It defines three jobs: `general-tests` (if `run_general_tests` is true), `integration-test`, and `osdk-test`. The `integration-test` and `osdk-test` jobs depend on `general-tests` if it's enabled. The `integration-test` job runs the core tests using the provided parameters. The `osdk-test` job performs linting and unit testing for the OSDK, using a matrix of container images.
+1.  **Backend Integration Layer (`backend_integration.yml`)**: This workflow is a reusable workflow that handles all architecture-specific setup and test execution. It takes various inputs to parameterize the test environment, including:
+
+    *   `test_id`: A unique identifier for the test being run.
+    *   `auto_test`: The type of test to run (boot, syscall, or test).
+    *   `release`: Whether to build in release mode.
+    *   `enable_kvm`: Whether to enable KVM.
+    *   `intel_tdx`: Whether to enable Intel TDX.
+    *   `smp`: The number of CPUs to use.
+    *   `netdev`: The network device to use.
+    *   `scheme`: The memory scheme (none, microvm, or iommu).
+    *   `extra_blocklists`: Additional blocklists for specific tests.
+    *   `syscall_test_dir`: The directory for syscall tests.
+    *   `boot_protocol`: The boot protocol to use.
+    *   `runs_on`: The runner to use.
+    *   `timeout_minutes`: The timeout for the test.
+    *   `integration_image`: The container image for integration tests.
+    *   `osdk_images`: A JSON array of container images for OSDK testing.
+    *   `run_general_tests`: A boolean flag to indicate whether to run general tests (lint, compilation, unit tests).
+
+    It defines three jobs: `general-tests` (if `run_general_tests` is true), `integration-test`, and `osdk-test`. The `integration-test` and `osdk-test` jobs *do not* depend on `general-tests` within the backend workflow itself.  Instead, the frontend workflows handle calling `general-tests` separately. The `integration-test` job runs the core tests using the provided parameters. The `osdk-test` job performs linting and unit testing for the OSDK, using a matrix of container images.
 
 2.  **Pre-Integration Checks (`pre_integration_checks.yml`)**: This workflow contains steps that are common across all architectures and are intended to be run before the more resource-intensive integration tests. It includes linting and compilation checks. It is triggered on pull requests and pushes to the main branch.
 
 3.  **Architecture Frontends**:
 
-    *   `test_x86.yml`: This workflow is the entry point for standard x86\_64 testing. It uses a matrix strategy to run a variety of tests (boot, syscall, general) with different configurations, calling the `backend_integration.yml` workflow with specific parameters for each test case.
-    *   `test_x86_tdx.yml`: This workflow is the entry point for Intel TDX-specific testing. It also uses a matrix strategy and calls `backend_integration.yml` with TDX-specific parameters.
+    *   `test_x86.yml`: This workflow is the entry point for standard x86\_64 testing. It *first* calls `backend_integration.yml` with `run_general_tests: true` and a specific `test_id` (e.g., `general_checks`).  *Then*, it uses a matrix strategy to run a variety of tests (boot, syscall, general) with different configurations, calling the `backend_integration.yml` workflow *again* with specific parameters for each test case, and `run_general_tests: false`.
+    *   `test_x86_tdx.yml`: This workflow is the entry point for Intel TDX-specific testing. It follows the same pattern as `test_x86.yml`, first calling the backend for general checks, then calling it again with a matrix of TDX-specific tests.
 
     Example of how the frontends call the backend:
 
     ```yaml
     # test_x86.yml
     jobs:
+      general-checks:
+        uses: ./.github/workflows/backend_integration.yml
+        with:
+          test_id: general_checks
+          run_general_tests: true
+          integration_image: 'asterinas/asterinas:0.14.0'
+          runs_on: 'ubuntu-latest'
+          auto_test: 'general'
+          release: true
+          enable_kvm: false
+          intel_tdx: false
+
       x86-test:
+        needs: general-checks
         uses: ./.github/workflows/backend_integration.yml
         strategy:
           matrix:
@@ -59,7 +91,7 @@ The CI workflow has been restructured into the following components:
           test_id: ${{ matrix.test_id }}
           auto_test: ${{ startsWith(matrix.test_id, 'boot') && 'boot' || ... }}
           # ... other parameters ...
-          run_general_tests: true # Example of enabling general tests
+          run_general_tests: false # Disable general tests for specific test runs
     ```
 
 ### Key Changes
@@ -67,7 +99,8 @@ The CI workflow has been restructured into the following components:
 -   Abstract hardware provisioning through parameterized jobs in `backend_integration.yml`.
 -   General tests (lint, compilation, unit tests) are integrated into `backend_integration.yml` and controlled by the `run_general_tests` input.
 -   `test_general.yml` has been renamed to `pre_integration_checks.yml` and now only includes linting and compilation.
--   Frontends (`test_x86.yml`, `test_x86_tdx.yml`) define test matrices and call the backend with appropriate parameters, including `run_general_tests`.
+-   Frontends (`test_x86.yml`, `test_x86_tdx.yml`) call `backend_integration.yml` *twice*: once for general checks, and again for the matrix of specific tests. This avoids redundant execution of the general tests.
+-   The `needs` dependency within `backend_integration.yml` has been removed to prevent redundant general test execution.
 
 ## Implementation Plan
 

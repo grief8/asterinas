@@ -122,7 +122,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: OSDK Lint
-        if: ${{ !contains(matrix.container, 'osdk') }}
+        if: ${{ contains(matrix.container, 'asterinas') }}
         run: make check_osdk
       - name: OSDK Unit test
         run: RUSTUP_HOME=/root/.rustup make test_osdk

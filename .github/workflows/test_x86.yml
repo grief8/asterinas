@@ -8,7 +8,21 @@ on:
       - main
 
 jobs:
+  general-checks:
+    uses: ./.github/workflows/backend_integration.yml
+    with:
+      test_id: general_checks
+      run_general_tests: true
+      integration_image: 'asterinas/asterinas:0.14.0'
+      runs_on: 'ubuntu-latest'
+      auto_test: 'general'  # Provide a default value
+      release: true        # Provide a default value
+      enable_kvm: false     # Provide a default value
+      intel_tdx: false     # Provide a default value
+
+
   x86-test:
+    needs: general-checks
     uses: ./.github/workflows/backend_integration.yml
     strategy:
       matrix:
@@ -55,4 +69,4 @@ jobs:
       integration_image: 'asterinas/asterinas:0.14.0'
       osdk_images: '["asterinas/asterinas:0.14.0", "asterinas/osdk:0.14.0"]'
       runs_on: 'ubuntu-latest'
-      run_general_tests: true
+      run_general_tests: false
