@@ -16,7 +16,6 @@ jobs:
       runs_on: 'ubuntu-latest'
 
   x86-test:
-    needs: general-checks
     uses: ./.github/workflows/test_backend.yml
     strategy:
       matrix:
