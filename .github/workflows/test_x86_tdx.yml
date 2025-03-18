@@ -6,7 +6,7 @@ on:
     - cron: '0 22 * * *'  # Daily at 22:00 UTC
 
 jobs:
-  tdx-integration-test:
+  tdx-test:
     uses: ./.github/workflows/test_backend.yml
     strategy:
       matrix:

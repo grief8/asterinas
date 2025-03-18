@@ -8,7 +8,7 @@ on:
       - main
 
 jobs:
-  general-checks:
+  general-check:
     uses: ./.github/workflows/test_backend.yml
     with:
       run_general_tests: true

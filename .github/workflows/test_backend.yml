@@ -67,7 +67,7 @@ on:
         default: false
 
 jobs:
-  general-tests:
+  general-test:
     if: ${{ inputs.run_general_tests }}
     runs-on: ${{ inputs.runs_on }}
     timeout-minutes: 15
@@ -94,7 +94,7 @@ jobs:
         if: matrix.step == 'ktest'
         run: make ktest NETDEV=tap
 
-  integration-tests:
+  integration-test:
     if: ${{ !inputs.run_general_tests }}
     runs-on: ${{ inputs.runs_on }}
     timeout-minutes: ${{ inputs.timeout_minutes }}
@@ -120,7 +120,7 @@ jobs:
             SYSCALL_TEST_DIR=${{ inputs.syscall_test_dir }} \
             BOOT_PROTOCOL=${{ inputs.boot_protocol }}
 
-  osdk-tests:
+  osdk-test:
     if: ${{ !inputs.run_general_tests }}
     runs-on: ${{ inputs.runs_on }}
     env:
