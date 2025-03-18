@@ -4,19 +4,20 @@ on:
   workflow_call:
     inputs:
       test_id:
-        required: true
+        required: false
         type: string
       auto_test:
-        required: true
+        required: false
         type: string
+        default: ''
       release:
-        required: true
+        required: false
         type: boolean
       enable_kvm:
-        required: true
+        required: false
         type: boolean
       intel_tdx:
-        required: true
+        required: false
         type: boolean
       smp:
         required: false
@@ -82,7 +83,8 @@ jobs:
       - name: Ktest Unit Test
         run: make ktest NETDEV=tap
 
-  integration-test:
+  integration-tests:
+    if: ${{ !inputs.run_general_tests }}
     runs-on: ${{ inputs.runs_on }}
     timeout-minutes: ${{ inputs.timeout_minutes }}
     env:
@@ -107,7 +109,8 @@ jobs:
             SYSCALL_TEST_DIR=${{ inputs.syscall_test_dir }} \
             BOOT_PROTOCOL=${{ inputs.boot_protocol }}
 
-  osdk-test:
+  osdk-tests:
+    if: ${{ !inputs.run_general_tests }}
     runs-on: ${{ inputs.runs_on }}
     env:
       RUSTUP_DIST_SERVER: ${{ inputs.intel_tdx && 'https://mirrors.ustc.edu.cn/rust-static' || '' }}
@@ -122,7 +125,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: OSDK Lint
-        if: ${{ contains(matrix.container, 'asterinas') }}
+        if: ${{ !contains(matrix.container, 'osdk') }}
         run: make check_osdk
       - name: OSDK Unit test
         run: RUSTUP_HOME=/root/.rustup make test_osdk
