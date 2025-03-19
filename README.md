@@ -1,9 +1,9 @@
 <p align="center">
     <img src="docs/src/images/logo_en.svg" alt="asterinas-logo" width="620"><br>
     A secure, fast, and general-purpose OS kernel written in Rust and compatible with Linux<br/>
-    <a href="https://github.com/asterinas/asterinas/actions/workflows/test_x86.yml"><img src="https://github.com/grief8/asterinas/actions/workflows/test_x86.yml/badge.svg?event=push" alt="x86_64" style="max-width: 100%;"></a>
-    <a href="https://github.com/asterinas/asterinas/actions/workflows/test_x86_tdx.yml"><img src="https://github.com/grief8/asterinas/actions/workflows/test_x86_tdx.yml/badge.svg" alt="x86_64_tdx" style="max-width: 100%;"></a>
-    <a href="https://asterinas.github.io/benchmark/"><img src="https://github.com/asterinas/asterinas/actions/workflows/benchmark_asterinas.yml/badge.svg" alt="Benchmark Asterinas" style="max-width: 100%;"></a>
+    <a href="https://github.com/asterinas/asterinas/actions/workflows/test_x86.yml"><img src="https://github.com/grief8/asterinas/actions/workflows/test_x86.yml/badge.svg?label=x86_64&event=push" alt="x86_64" style="max-width: 100%;"></a>
+    <a href="https://github.com/asterinas/asterinas/actions/workflows/test_x86_tdx.yml"><img src="https://github.com/grief8/asterinas/actions/workflows/test_x86_tdx.yml/badge.svg?label=x86_64_tdx" alt="x86_64_tdx" style="max-width: 100%;"></a>
+    <a href="https://asterinas.github.io/benchmark/"><img src="https://github.com/asterinas/asterinas/actions/workflows/benchmark_asterinas.yml/badge.svg?label=Benchmark+Asterinas" alt="Benchmark Asterinas" style="max-width: 100%;"></a>
     <br/>
 </p>
 
