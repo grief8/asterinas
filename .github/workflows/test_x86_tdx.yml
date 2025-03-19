@@ -36,7 +36,7 @@ jobs:
       enable_kvm: false
       intel_tdx: true
       smp: ${{ contains(matrix.test_id, 'smp4') && 4 || 1 }}
-      netdev: 'tap'
+      netdev: 'user'
       extra_blocklists: ${{ contains(matrix.test_id, 'exfat') && 'blocklists.exfat' || '' }}
       syscall_test_dir: ${{ contains(matrix.test_id, 'at_exfat') && '/exfat' || '/tmp' }}
       boot_protocol: 'linux-efi-handover64'  # Use explicit boot protocol
