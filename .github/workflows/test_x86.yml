@@ -38,12 +38,9 @@ jobs:
       fail-fast: false
     with:
       test_id: ${{ matrix.test_id }}
-      auto_test: |
-        ${{
-          startsWith(matrix.test_id, 'boot') && 'boot' ||
+      auto_test: ${{ startsWith(matrix.test_id, 'boot') && 'boot' ||
           startsWith(matrix.test_id, 'syscall') && 'syscall' ||
-          startsWith(matrix.test_id, 'test') && 'test'
-        }}
+          startsWith(matrix.test_id, 'test') && 'test' }}
       release: ${{ !contains(matrix.test_id, '_debug') }}
       enable_kvm: ${{ !contains(matrix.test_id, 'nokvm') }}
       intel_tdx: ${{ contains(matrix.test_id, 'tdx') }}
