@@ -129,9 +129,9 @@ jobs:
       RUSTUP_DIST_SERVER: ${{ inputs.intel_tdx && 'https://mirrors.ustc.edu.cn/rust-static' || '' }}
       RUSTUP_UPDATE_ROOT: ${{ inputs.intel_tdx && 'https://mirrors.ustc.edu.cn/rust-static/rustup' || '' }}
     strategy:
-      matrix:
-        container: ${{ inputs.osdk_images }}
       fail-fast: false
+      matrix:
+        container: ${{ fromJSON(inputs.osdk_images) }}
     container:
       image: ${{ matrix.container }}
       options: --device=/dev/kvm --privileged

@@ -33,7 +33,7 @@ jobs:
           startsWith(matrix.test_id, 'general') && 'test'
         }}
       release: true
-      enable_kvm: true
+      enable_kvm: false
       intel_tdx: true
       smp: ${{ contains(matrix.test_id, 'smp4') && 4 || 1 }}
       netdev: 'tap'
