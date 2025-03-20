@@ -98,7 +98,7 @@ pub fn boot_all_aps() {
 
     log::info!("Booting all application processors...");
 
-    bringup_all_aps();
+    bringup_all_aps(num_cpus);
     wait_for_all_aps_started();
 
     log::info!("All application processors started. The BSP continues to run.");
