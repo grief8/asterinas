@@ -44,7 +44,7 @@ jobs:
           file: ./tools/docker/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: asterinas/asterinas:${{ steps.fetch-versions.outputs.aster_version }}
+          tags: llifabing/asterinas:${{ steps.fetch-versions.outputs.aster_version }}
           build-args: |
             "ASTER_RUST_VERSION=${{ steps.fetch-versions.outputs.rust_version }}"
 
@@ -59,7 +59,7 @@ jobs:
           file: ./tools/docker/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: asterinas/asterinas:${{ steps.fetch-versions.outputs.aster_version }}-tdx
+          tags: llifabing/asterinas:${{ steps.fetch-versions.outputs.aster_version }}-tdx
           build-args: |
             "ASTER_RUST_VERSION=${{ steps.fetch-versions.outputs.rust_version }}"
 
