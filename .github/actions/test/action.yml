@@ -1,0 +1,171 @@
+name: 'Test'
+description: 'Run tests for Asterinas'
+branding:
+  icon: 'check-circle'
+  color: 'green'
+inputs:
+  # Test Configuration
+  auto_test:
+    description: 'Test type (general, osdk, boot, syscall, test)'
+    required: true
+  release:
+    description: 'Whether to run in release mode'
+    required: false
+  
+  # Virtualization Settings  
+  enable_kvm:
+    description: 'Enable KVM acceleration'
+    required: false
+  intel_tdx:
+    description: 'Enable Intel TDX support'
+    required: false
+  smp:
+    description: 'Number of CPUs'
+    required: false
+  netdev:
+    description: 'Network device type (user/tap)'
+    required: false
+  scheme:
+    description: 'Test scheme (default/microvm/iommu)'
+    required: false
+  
+  # Test Parameters
+  extra_blocklists:
+    description: 'Extra blocklists directories'
+    required: false
+  syscall_test_dir:
+    description: 'Syscall test directory'
+    required: false
+  boot_protocol:
+    description: 'Boot protocol (linux-efi-handover64/multiboot/multiboot2/linux-legacy32)'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup environment
+      shell: bash
+      run: |
+        if [[ "${{ inputs.intel_tdx }}" == "true" ]]; then
+          export RUSTUP_DIST_SERVER=https://mirrors.ustc.edu.cn/rust-static
+          export RUSTUP_UPDATE_ROOT=https://mirrors.ustc.edu.cn/rust-static/rustup
+        fi
+        
+    - name: Run basic tests
+      if: ${{ inputs.auto_test == 'general' }}
+      shell: bash
+      run: |
+        if [[ "${{ matrix.id }}" == "lint" ]]; then
+          make check
+        elif [[ "${{ matrix.id }}" == "compile" ]]; then
+          make build FEATURES=all
+        elif [[ "${{ matrix.id }}" == "usermode_test" ]]; then
+          make test
+        elif [[ "${{ matrix.id }}" == "ktest" ]]; then
+          make ktest NETDEV=tap
+        fi
+
+    - name: Setup test environment
+      if: ${{ !(inputs.auto_test == 'general' || inputs.auto_test == 'osdk') }}
+      shell: bash
+      run: |
+        echo "AUTO_TEST=${{ inputs.auto_test }}" >> $GITHUB_ENV
+        # Set env vars only if input is provided and non-empty, handle booleans
+        if [[ "${{ inputs.release }}" == "true" ]]; then
+          echo "RELEASE=1" >> $GITHUB_ENV
+        fi
+        if [[ "${{ inputs.enable_kvm }}" == "false" ]]; then
+          echo "ENABLE_KVM=0" >> $GITHUB_ENV
+        fi
+        if [[ "${{ inputs.intel_tdx }}" == "true" ]]; then
+          echo "INTEL_TDX=1" >> $GITHUB_ENV
+        fi
+        # For string inputs, check if they are non-empty
+        if [[ -n "${{ inputs.smp }}" ]]; then
+          echo "SMP=${{ inputs.smp }}" >> $GITHUB_ENV
+        fi
+        if [[ -n "${{ inputs.netdev }}" ]]; then
+          echo "NETDEV=${{ inputs.netdev }}" >> $GITHUB_ENV
+        fi
+        if [[ -n "${{ inputs.scheme }}" ]]; then
+          echo "SCHEME=${{ inputs.scheme }}" >> $GITHUB_ENV
+        fi
+        if [[ -n "${{ inputs.extra_blocklists }}" ]]; then
+          echo "EXTRA_BLOCKLISTS_DIRS=${{ inputs.extra_blocklists }}" >> $GITHUB_ENV
+        fi
+        if [[ -n "${{ inputs.syscall_test_dir }}" ]]; then
+          echo "SYSCALL_TEST_DIR=${{ inputs.syscall_test_dir }}" >> $GITHUB_ENV
+        fi
+        if [[ -n "${{ inputs.boot_protocol }}" ]]; then
+          echo "BOOT_PROTOCOL=${{ inputs.boot_protocol }}" >> $GITHUB_ENV
+        fi
+
+    - name: Run integration test
+      if: ${{ !(inputs.auto_test == 'general' || inputs.auto_test == 'osdk') }}
+      uses: nick-invision/retry@v2
+      with:
+          timeout_minutes: 20
+          max_attempts: 3
+          command: |
+            CMD="make run"
+            # AUTO_TEST is required, so always include it
+            CMD+=" AUTO_TEST=${{ env.AUTO_TEST }}"
+
+            # Conditionally add other parameters only if the corresponding env var exists
+            # (It will only exist if set in the previous step)
+            if [[ -n "${{ env.RELEASE }}" ]]; then
+              CMD+=" RELEASE=${{ env.RELEASE }}"
+            fi
+            if [[ -n "${{ env.ENABLE_KVM }}" ]]; then
+              CMD+=" ENABLE_KVM=${{ env.ENABLE_KVM }}"
+            fi
+            if [[ -n "${{ env.INTEL_TDX }}" ]]; then
+              CMD+=" INTEL_TDX=${{ env.INTEL_TDX }}"
+            fi
+            if [[ -n "${{ env.SMP }}" ]]; then
+              CMD+=" SMP=${{ env.SMP }}"
+            fi
+            if [[ -n "${{ env.NETDEV }}" ]]; then
+              CMD+=" NETDEV=${{ env.NETDEV }}"
+            fi
+            if [[ -n "${{ env.SCHEME }}" ]]; then
+              CMD+=" SCHEME=${{ env.SCHEME }}"
+            fi
+            if [[ -n "${{ env.EXTRA_BLOCKLISTS_DIRS }}" ]]; then
+              CMD+=" EXTRA_BLOCKLISTS_DIRS=${{ env.EXTRA_BLOCKLISTS_DIRS }}"
+            fi
+            if [[ -n "${{ env.SYSCALL_TEST_DIR }}" ]]; then
+              CMD+=" SYSCALL_TEST_DIR=${{ env.SYSCALL_TEST_DIR }}"
+            fi
+            if [[ -n "${{ env.BOOT_PROTOCOL }}" ]]; then
+              CMD+=" BOOT_PROTOCOL=${{ env.BOOT_PROTOCOL }}"
+            fi
+
+            echo "Executing: $CMD"
+            eval $CMD
+
+    - name: Setup OSDK environment
+      if: ${{ inputs.auto_test == 'osdk' }}
+      shell: bash
+      run: |
+        if [[ "${{ inputs.intel_tdx }}" == "true" ]]; then
+          echo "INTEL_TDX=1" >> $GITHUB_ENV
+        else
+          echo "INTEL_TDX=0" >> $GITHUB_ENV
+        fi
+        echo "CONTAINER_HAS_OSDK=${{ !contains(matrix.container, 'osdk') && 'true' || 'false' }}" >> $GITHUB_ENV
+
+    - name: Run OSDK tests
+      if: ${{ inputs.auto_test == 'osdk' }}
+      uses: nick-invision/retry@v2
+      with:
+          timeout_minutes: 20
+          max_attempts: 3
+          command: |
+            if [[ "${{ env.CONTAINER_HAS_OSDK }}" == "true" ]]; then
+              make check_osdk
+            fi
+            RUSTUP_HOME=/root/.rustup INTEL_TDX=${{ env.INTEL_TDX }} make test_osdk
