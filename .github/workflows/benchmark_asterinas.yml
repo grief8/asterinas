@@ -8,7 +8,7 @@ on:
 
 jobs:
   Benchmarks:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         benchmarks: 
@@ -109,12 +109,7 @@ jobs:
     container: 
       image: asterinas/asterinas:0.14.1-20250326
       options: --device=/dev/kvm --privileged
-    env:
-      # Need to set up proxy since the self-hosted CI server is located in China,
-      # which has poor network connection to the official Rust crate repositories.
-      RUSTUP_DIST_SERVER: https://mirrors.ustc.edu.cn/rust-static
-      RUSTUP_UPDATE_ROOT: https://mirrors.ustc.edu.cn/rust-static/rustup
-
+    
     steps:
       - uses: actions/checkout@v4
       - name: Set up the environment
@@ -214,7 +209,7 @@ jobs:
           output-file-path: results/result_${{ matrix.benchmark }}.json
           benchmark-data-dir-path: ${{ env.BENCHMARK_SUITE }}
           github-token: ${{ secrets.BENCHMARK_SECRET }}
-          gh-repository: 'github.com/asterinas/benchmark'
+          gh-repository: 'github.com/grief8/benchmark'
           auto-push: true
           alert-threshold: ${{ env.ALERT_THRESHOLD }}
           comment-on-alert: true
