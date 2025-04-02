@@ -119,15 +119,11 @@ jobs:
           git config --global http.version HTTP/1.1
 
       - name: Run benchmarks
-        uses: nick-invision/retry@v3 # Retry the benchmark command in case of failure
-        with:
-          timeout_minutes: 20
-          max_attempts: 3
-          command: |
-            make install_osdk
-            bash test/benchmark/bench_linux_and_aster.sh "${{ matrix.benchmarks }}"
-            BENCHMARK_ARTIFACT=results_$(echo "${{ matrix.benchmarks }}" | tr '/' '-')
-            echo "BENCHMARK_ARTIFACT=$BENCHMARK_ARTIFACT" >> $GITHUB_ENV
+        run: |
+          make install_osdk
+          bash test/benchmark/bench_linux_and_aster.sh "${{ matrix.benchmarks }}"
+          BENCHMARK_ARTIFACT=results_$(echo "${{ matrix.benchmarks }}" | tr '/' '-')
+          echo "BENCHMARK_ARTIFACT=$BENCHMARK_ARTIFACT" >> $GITHUB_ENV
 
       - name: Store benchmark results
         uses: actions/upload-artifact@v4
@@ -137,29 +133,9 @@ jobs:
           path: |
             result_*.json
 
-  Matrix:
-    runs-on: ubuntu-latest
-    needs: Benchmarks # Must run after the Benchmarks job.
-    if: always() # Always run regardless of whether the previous job was successful or not.
-    outputs:
-      benchmarks: ${{ steps.set-matrix.outputs.benchmarks }}
-    steps:
-      - name: Download results
-        uses: actions/download-artifact@v4
-        with:
-          pattern: results_*
-          path: ./results
-          merge-multiple: true
-
-      - name: Set matrix for benchmark results
-        id: set-matrix
-        run: |
-          benchmarks=$(ls results/result_*.json | sed 's/.*result_//' | sed 's/\.json//' | jq -R -s -c 'split("\n")[:-1]')
-          echo benchmarks=$benchmarks >> $GITHUB_OUTPUT
-
   Results:
     runs-on: ubuntu-latest
-    needs: Matrix
+    needs: Benchmarks
     if: always()
 
     steps:
@@ -176,10 +152,9 @@ jobs:
           sudo apt-get update && sudo apt-get install -y yq jq # Added jq
 
       - name: Generate all benchmark config files
-        id: generate-configs
         run: |
           mkdir -p configs
-          BENCHMARK_LIST='${{ needs.Matrix.outputs.benchmarks }}'
+          BENCHMARK_LIST=$(ls results/result_*.json | sed 's/.*result_//' | sed 's/\.json//' | jq -R -s -c 'split("\n")[:-1]')
           echo "Processing benchmarks: $BENCHMARK_LIST"
 
           # Loop through the benchmark identifiers provided by the Matrix job
@@ -250,7 +225,6 @@ jobs:
         with:
           # Use glob pattern to find all generated config files
           output-file-path: "configs/config_*.json"
-          # Keep global inputs
           github-token: ${{ secrets.BENCHMARK_SECRET }}
           gh-repository: 'github.com/grief8/benchmark'
           auto-push: true
