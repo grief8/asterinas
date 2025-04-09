@@ -139,7 +139,7 @@ runs:
         # Use glob pattern to find all generated config files
         output-file-path: "configs/config_*.json"
         github-token: ${{ inputs.benchmark-secret }}
-        gh-repository: 'github.com/asterinas/benchmark'
+        gh-repository: 'github.com/grief8/benchmark'
         auto-push: true
         comment-on-alert: true
         fail-on-alert: false
