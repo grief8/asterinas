@@ -1,6 +1,7 @@
 # Summary
 
 [Introduction](README.md)
+[中文简介](project-intro-zh.md)
 
 # Asterinas Kernel
 
